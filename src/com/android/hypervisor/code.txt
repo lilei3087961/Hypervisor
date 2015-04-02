@@ -1,0 +1,80 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+ 
+int main()
+{
+char y[20];
+char x[2][20]={{".."},{".."}};
+ 
+for(;;)
+{
+      printf("..................");
+        scanf("%s",&y);
+ 
+            if(strcmp(y,x[1])==0)
+            {
+                printf("\n........\n\n");
+                break; 
+            }
+ 
+            if(strcmp(y,x[0])==0)
+                printf("\n...............\n\n");
+            else
+                printf("\n............\n\n");
+}
+}
+
+*****************************************************************
+#include<stdio.h>
+#include<string.h>
+int main(void)
+{
+    char ch[10][4];
+    strcpy(ch[0], ".");
+    strcpy(ch[1], ".");
+    strcpy(ch[2], ".");
+    strcpy(ch[3], ".");
+    strcpy(ch[4], ".");
+    strcpy(ch[5], ".");
+    int i;
+    for(i = 0; i < 6; i++)
+        printf("%s", ch[i]);
+    return 0;
+}
+
+****************************************************************
+
+#include<stdio.h>
+
+#include<string.h>
+
+int main(){
+
+    char a[100]="..a.b.!";
+
+    char b[3];
+
+    int i;
+
+    b[2]='\0';
+
+    printf("%s\n",a);//will printe all chinese world
+
+    printf("%c%c\n",a[0],a[1]);//will printe the first chinese word
+
+    for(i=0;a[i+1]!='\0';i++){
+
+        b[0]=a[i];
+
+        b[1]=a[i+1];
+
+        if(strcmp(".",b)==0)
+
+            printf(".\n");
+
+    }
+
+    return 0;
+
+}
