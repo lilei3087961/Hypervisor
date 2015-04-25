@@ -47,8 +47,6 @@ import java.util.List;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-
-
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
@@ -59,13 +57,13 @@ import java.net.UnknownHostException;
  */
 public class IPCService extends Service {
 
-    private final String TAG = "PICService"; 
+    private final String TAG = "IPCService"; 
 
     private ServerThread mServerThread = null;
 
     private static boolean mServerRunning = false;
     private static boolean mServiceStarted = false; 
-  
+    IPCSocketImpl  mIPCSocketImpl;
     public HypervisorApplication mApp; 
     // Used for setting FLAG_ACTIVITY_NO_USER_ACTION when
     // creating an intent.
@@ -142,7 +140,39 @@ public class IPCService extends Service {
         return null;
     }
 
-
+    //add by lilei begin
+    void testSocket(){
+    	Log.i(TAG, ">>lilei>>begin test socket");
+    	IPCSocketImpl  ipcImpl = new IPCSocketImpl(mApp);
+    	Log.i(TAG, ">>lilei>>test socket 1");
+    	ipcImpl.androidAppBack();
+    	Log.i(TAG, ">>lilei>>test socket 2");
+    	ipcImpl.androidAppExit("a", "a");
+    	Log.i(TAG, ">>lilei>>test socket 3");
+    	ipcImpl.androidAppResume("b", "b");
+    	Log.i(TAG, ">>lilei>>test socket 4");
+    	ipcImpl.androidAppStartFail("c", "c");
+    	Log.i(TAG, ">>lilei>>test socket 5");
+    	ipcImpl.androidAppStartSuccess("d", "d");
+    	Log.i(TAG, ">>lilei>>test socket 6");
+    	ipcImpl.androidRemoveOne("e");
+    	Log.i(TAG, ">>lilei>>test socket 7");
+    	ipcImpl.androidReady();
+    	Log.i(TAG, ">>lilei>>test socket 8");
+    	ipcImpl.androidHeartBeat();
+    	Log.i(TAG, ">>lilei>>test socket 9");
+    	ipcImpl.androidRequstAudio();
+    	Log.i(TAG, ">>lilei>>test socket 10");
+    	ipcImpl.androidUpdateLanguage();
+    	//ipcImpl.androidAppBasicInfo();
+    	//String packageName = "com.android.camera";
+    	//String className = "com.android.camera.Camera";
+    	//ipcImpl.androidUpdateOne(packageName, className);
+    	//ipcImpl.androidSendOneApp(packageName, className);
+    	//ipcImpl.androidRemoveOne("a");
+    }
+      
+    //add by lilei end
    private class ServerThread extends Thread {
 
         ServerSocket mServerSocket;
@@ -150,35 +180,35 @@ public class IPCService extends Service {
         public void run() {
 
            try{
-           mServerSocket  = new  ServerSocket(4700);
-
-           ThreadPool pool=ThreadPool.getInstance();
-           Log.v("IPCService", ">>>>chenrui>>>>serverThread>>>run");
-
-           while(true){
-		Socket socket= mServerSocket.accept();
-
-	        ForwardTask task=new ForwardTask(socket, mApp);
-		pool.addTask(task);
-	   }
+               mServerSocket  = new  ServerSocket(4700);
+    
+               ThreadPool pool=ThreadPool.getInstance();
+               Log.v("IPCService", ">>>>chenrui>>>>serverThread>>>run");
+               //testSocket(); //for test by lilei
+               mIPCSocketImpl = new IPCSocketImpl(mApp);
+               mIPCSocketImpl.androidReady();
+               while(true){
+                   Log.v(TAG, ">>lilei>>serverThread>>wait for connect...");
+                   Socket socket= mServerSocket.accept();
+                   Log.v(TAG, ">>lilei>>serverThread>>connecting ");
+                   ForwardTask task=new ForwardTask(socket, mApp);
+                   pool.addTask(task);
+               }
            } catch (IOException e) {
-	       e.printStackTrace();
-	   }
-            
-
+        	   e.printStackTrace();
+           }
         }
         public void shutdown() {
-                if (mServerSocket != null) {
-                    try {
-                        mServerSocket.close();
-                    } catch (IOException e) {
-                    }
-                    mServerSocket = null;
+            if (mServerSocket != null) {
+                try {
+                    mServerSocket.close();
+                } catch (IOException e) {
                 }
+                mServerSocket = null;
+            }
         }
 
-
-}
+   }
 
 }
 

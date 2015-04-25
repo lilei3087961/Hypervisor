@@ -16,6 +16,7 @@
 
 package com.android.hypervisor;
 
+import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -25,6 +26,7 @@ import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.util.Log;
 
 
 /**
@@ -32,7 +34,7 @@ import android.content.pm.ResolveInfo;
  */
 class AllAppsList {
     public static final int DEFAULT_APPLICATIONS_NUMBER = 42;
-    
+    private static final String TAG = "AllAppsList";
     /** The list off all apps. */
     public ArrayList<ApplicationInfo> data =
             new ArrayList<ApplicationInfo>(DEFAULT_APPLICATIONS_NUMBER);
@@ -45,12 +47,17 @@ class AllAppsList {
     public ArrayList<ApplicationInfo> modified = new ArrayList<ApplicationInfo>();
 
     private IconCache mIconCache;
+    IPCSocketImpl  mIPCSocketImpl;
+    ThreadPool mThreadPool;
+    AndroidChangeTask mAndroidChangeTask;
 
     /**
      * Boring constructor.
      */
-    public AllAppsList(IconCache iconCache) {
+    public AllAppsList(HypervisorApplication app,IconCache iconCache) {
         mIconCache = iconCache;
+        mIPCSocketImpl = new IPCSocketImpl(app);
+        mThreadPool = ThreadPool.getInstance();
     }
 
     /**
@@ -82,15 +89,26 @@ class AllAppsList {
     public ApplicationInfo get(int index) {
         return data.get(index);
     }
-
+    //add by lilei begin
+    public void doChangeInTask(short configState,String packageName,String activityName){
+    	mAndroidChangeTask = new AndroidChangeTask(mIPCSocketImpl,
+    			configState,packageName, activityName);
+    	mThreadPool.addTask(mAndroidChangeTask);
+    }
+    //add by lilei end
     /**
      * Add the icons for the supplied apk called packageName.
      */
     public void addPackage(Context context, String packageName) {
         final List<ResolveInfo> matches = findActivitiesForPackage(context, packageName);
-
+        Log.i(TAG, ">>lilei>>addPackage() packageName:"+packageName
+        		+" activity size:"+matches.size());
         if (matches.size() > 0) {
             for (ResolveInfo info : matches) {
+            	//mIPCSocketImpl.androidAddOne(packageName, info.activityInfo.name);
+            	doChangeInTask(Config.MESSAGE_ANDROID_ADDONE,packageName,
+            			info.activityInfo.name);
+            	
                 add(new ApplicationInfo(context.getPackageManager(), info, mIconCache, null));
             }
         }
@@ -100,11 +118,16 @@ class AllAppsList {
      * Remove the apps for the given apk identified by packageName.
      */
     public void removePackage(String packageName) {
+    	Log.i(TAG, ">>lilei>>removePackage() 111 packageName:"+packageName);
         final List<ApplicationInfo> data = this.data;
         for (int i = data.size() - 1; i >= 0; i--) {
             ApplicationInfo info = data.get(i);
             final ComponentName component = info.intent.getComponent();
             if (packageName.equals(component.getPackageName())) {
+            	Log.i(TAG, ">>lilei>>removePackage() 222 find packageName:"+packageName);
+            	//mIPCSocketImpl.androidRemoveOne(packageName);
+            	doChangeInTask(Config.MESSAGE_ANDROID_REMOVEONE,packageName,null);
+            	
                 removed.add(info);
                 data.remove(i);
             }
@@ -118,6 +141,8 @@ class AllAppsList {
      */
     public void updatePackage(Context context, String packageName) {
         final List<ResolveInfo> matches = findActivitiesForPackage(context, packageName);
+        Log.i(TAG, ">>lilei>>updatePackage() 111 packageName:"+packageName
+        		+" activity size:"+matches.size());
         if (matches.size() > 0) {
             // Find disabled/removed activities and remove them from data and add them
             // to the removed list.
@@ -142,14 +167,29 @@ class AllAppsList {
                         info.activityInfo.applicationInfo.packageName,
                         info.activityInfo.name);
                 if (applicationInfo == null) {
+                    Log.i(TAG, ">>lilei>>updatePackage() 222 add packageName:"+packageName
+                    		+" activityname:"+info.activityInfo.name);
+                    //mIPCSocketImpl.androidAddOne(packageName, info.activityInfo.name);
+                    doChangeInTask(Config.MESSAGE_ANDROID_ADDONE,packageName,
+                    		info.activityInfo.name);
+                    
                     add(new ApplicationInfo(context.getPackageManager(), info, mIconCache, null));
                 } else {
                     mIconCache.remove(applicationInfo.componentName);
                     mIconCache.getTitleAndIcon(applicationInfo, info, null);
                     modified.add(applicationInfo);
+                    Log.i(TAG, ">>lilei>>updatePackage() 333 update packageName:"+packageName
+                    		+" activityname:"+info.activityInfo.name);
+                    //mIPCSocketImpl.androidUpdateOne(packageName, info.activityInfo.name);
+                    doChangeInTask(Config.MESSAGE_ANDROID_UPDATEONE,packageName,
+                    		info.activityInfo.name);
                 }
             }
         } else {
+        	Log.i(TAG, ">>lilei>>updatePackage() 444 remove packageName:"+packageName);
+        	//mIPCSocketImpl.androidRemoveOne(packageName);
+        	doChangeInTask(Config.MESSAGE_ANDROID_REMOVEONE,packageName,null);
+        	
             // Remove all data for this package.
             for (int i = data.size() - 1; i >= 0; i--) {
                 final ApplicationInfo applicationInfo = data.get(i);

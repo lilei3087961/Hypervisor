@@ -16,10 +16,11 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     coreApp="true"
+    android:sharedUserId="android.uid.system"
     package="com.android.hypervisor">
-
+	<uses-sdk android:minSdkVersion="14"/>
     <original-package android:name="com.android.hypervisor" />
-
+	<uses-permission android:name="android.permission.MASTER_CLEAR" />
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
@@ -48,9 +49,9 @@
          </activity>
 
    
-         <provider android:name="ApplicationsProvider" android:authorities="applications"
+    <!--     <provider android:name="ApplicationsProvider" android:authorities="applications"
                 android:exported="true"
-                android:syncable="false" android:multiprocess="false" />
+                android:syncable="false" android:multiprocess="false" /> -->
 
          <receiver android:name="com.android.hypervisor.BootCompleteReceiver">
             <intent-filter>

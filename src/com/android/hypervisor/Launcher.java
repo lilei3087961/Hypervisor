@@ -121,7 +121,7 @@ public final class Launcher extends Activity{
     static final String TAG = "Launcher";
 
     private boolean isfirstResume = true; 
-
+    private HypervisorApplication mApp;
     @Override
     public void onCreate(Bundle icicle) {
         super.onCreate(icicle);
@@ -138,12 +138,14 @@ public final class Launcher extends Activity{
     @Override
     protected void onResume() {
         super.onResume();
-
+        if(mApp == null)
+        	mApp = (HypervisorApplication)getApplication();
         if(isfirstResume){
               isfirstResume = false;
               return; 
         }else{
-
+        	  mApp.getModel().getAllAppInfo().doChangeInTask(
+        			Config.MESSAGE_ANDROID_KEYCODE_HOME, null, null);
             //here, we will deal with : back key and home key , if onResume is not called by the first time, it will send message to Linux and switch to Linux OS
               Log.v(TAG, ">>>>chenrui>>>>not first resume, we should send message to Linux OS and exit android"); 
 

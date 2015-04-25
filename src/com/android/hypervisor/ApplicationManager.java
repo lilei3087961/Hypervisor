@@ -89,7 +89,7 @@ public class ApplicationManager extends BroadcastReceiver {
     ApplicationManager(HypervisorApplication app, IconCache iconCache) {
         mApp = app;
         mAllAppsLoaded = false; 
-        mBgAllAppsList = new AllAppsList(iconCache);
+        mBgAllAppsList = new AllAppsList(app,iconCache);
         mIconCache = iconCache;
 
         mDefaultIcon = Utilities.createIconBitmap(
@@ -160,7 +160,7 @@ public class ApplicationManager extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
          final String action = intent.getAction();
-
+         Log.v("ApplicationManager", ">>>>chenrui>>>>onReceive action:"+action);
          if (Intent.ACTION_PACKAGE_CHANGED.equals(action)
                 || Intent.ACTION_PACKAGE_REMOVED.equals(action)
                 || Intent.ACTION_PACKAGE_ADDED.equals(action)) {
@@ -204,6 +204,8 @@ public class ApplicationManager extends BroadcastReceiver {
             enqueuePackageUpdated(new PackageUpdatedTask(
                         PackageUpdatedTask.OP_UNAVAILABLE, packages));
         } else if (Intent.ACTION_LOCALE_CHANGED.equals(action)) {
+        	mBgAllAppsList.doChangeInTask(Config.MESSAGE_ANDROID_UPDATE_LANGUAGE,
+        			null,null);
             // If we have changed locale we need to clear out the labels in all apps/workspace.
             forceReload();
         } else if (Intent.ACTION_CONFIGURATION_CHANGED.equals(action)) {
@@ -295,7 +297,6 @@ public class ApplicationManager extends BroadcastReceiver {
 
            final Intent mainIntent = new Intent(Intent.ACTION_MAIN, null);
             mainIntent.addCategory(Intent.CATEGORY_LAUNCHER);
-
             final PackageManager packageManager =  mApp.getPackageManager();
             List<ResolveInfo> apps = null;
 
@@ -365,13 +366,13 @@ public class ApplicationManager extends BroadcastReceiver {
             switch (mOp) {
                 case OP_ADD:
                     for (int i=0; i<N; i++) {
-                        Log.d(TAG, "mAllAppsList.addPackage " + packages[i]);
+                        Log.d(TAG, ">>>>chenrui>>>>mAllAppsList.addPackage " + packages[i]);
                         mBgAllAppsList.addPackage(context, packages[i]);
                     }
                     break;
                 case OP_UPDATE:
                     for (int i=0; i<N; i++) {
-                        Log.d(TAG, "mAllAppsList.updatePackage " + packages[i]);
+                        Log.d(TAG, ">>>>chenrui>>>>mAllAppsList.updatePackage " + packages[i]);
                         mBgAllAppsList.updatePackage(context, packages[i]);
                         HypervisorApplication app =
                                 (HypervisorApplication) context.getApplicationContext();
@@ -380,7 +381,7 @@ public class ApplicationManager extends BroadcastReceiver {
                 case OP_REMOVE:
                 case OP_UNAVAILABLE:
                     for (int i=0; i<N; i++) {
-                        Log.d(TAG, "mAllAppsList.removePackage " + packages[i]);
+                        Log.d(TAG, ">>>>chenrui>>>>mAllAppsList.removePackage " + packages[i]);
                         mBgAllAppsList.removePackage(packages[i]);
                         HypervisorApplication app =
                                 (HypervisorApplication) context.getApplicationContext();

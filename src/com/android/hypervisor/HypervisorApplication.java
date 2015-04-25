@@ -84,7 +84,7 @@ public class HypervisorApplication extends Application {
     }
 
     ApplicationManager getModel() {
-        return mModel;
+    	return mModel;
     }
 
     public void setPlaytime(long time){
