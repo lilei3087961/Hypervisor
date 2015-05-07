@@ -3,6 +3,7 @@ package com.android.hypervisor;
 
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
+import java.io.BufferedReader;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -10,8 +11,10 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.lang.reflect.Method;
 import java.net.Socket;
+import java.nio.CharBuffer;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -46,12 +49,14 @@ public class ForwardTask extends Task{
           Socket socket;
           DataInputStream dis;
           DataOutputStream dos;
+          BufferedReader br;
           private boolean onWork=true;
           Intent[] mIntents;
           Intent mIntent;
           ComponentName mComponentName;
           String line = "";
-          static ArrayList<String> mArrLines = new  ArrayList<String>();
+          StringBuilder sbLine;
+          final ArrayList<String> mArrLines = new  ArrayList<String>();
           public final HypervisorApplication mApp;
           public IPCSocketImpl  ipcImpl; 
           
@@ -66,6 +71,7 @@ public class ForwardTask extends Task{
 
                try {
                    dis=new DataInputStream(new BufferedInputStream(socket.getInputStream()));
+                   br = new BufferedReader(new InputStreamReader(dis));
                    dos=new DataOutputStream(new BufferedOutputStream(socket.getOutputStream()));
                 } catch (IOException e) {
                         e.printStackTrace();
@@ -108,13 +114,13 @@ public class ForwardTask extends Task{
         }
 
          public void run() {
-                while(onWork){
+                if(onWork){
 
                         try{
                                 receiveMsg();
                         }catch(Exception e){
                                 e.printStackTrace();
-                                break;
+                                //break;
                         }
                 }
 
@@ -139,18 +145,36 @@ public class ForwardTask extends Task{
                 //int requestType = dis.readInt();
 	 			int requestType = -1;
 	 			JSONObject jsonObj = null;
-	 			
 	 			mArrLines.clear();
 	 			if(IPCSocketImpl.USE_JSON){
-	 				while((line = dis.readLine()) != null){
-	 					Log.d(TAG, ">>lilei>>json~~ receiveMsg line.trim:"+line.trim());
+	 			   Log.w(TAG, ">>lilei>>~~receiveMsg 1111");
+	 			
+	 			/*	
+	 			  //阻塞方法
+	 			  while((line = br.readLine()) != null){
+	 					Log.d(TAG, ">>lilei>>json~~ receiveMsg line.trim:"+line.trim()
+	 					        +" timeNow:"+getTimeNow());
 	 					mArrLines.add(line.trim());
-	 				}
-	 				if(mArrLines.size() > 1){
-	 					Log.w(TAG, ">>lilei>>receiveMsg>>!!! error line size:"+mArrLines.size());
+	 				}  */
+	 			    char[] buffer = new char[1024];
+	                sbLine = new StringBuilder();
+	 			    int len;
+	 			    //非阻塞方法
+	 			    while((len = br.read(buffer)) != -1){
+	 			        for(int i=0;i<len;i++){
+	 			           //Log.w(TAG, ">>lilei>>receiveMsg buffer["+i+"]:"+String.valueOf(buffer[i]).trim());
+	 			           sbLine.append(String.valueOf(buffer[i]).trim());
+	 			        }
+	 			    }
+	 			    
+ 	 				Log.w(TAG, ">>lilei>>receiveMsg 222 len:"+sbLine.toString().length()
+ 	 				        +" sbLine:"+sbLine.toString());
+	 				if(sbLine.toString().length() == 0){
+	 					Log.w(TAG, ">>lilei>>receiveMsg>> sbLine is null!!");
+	 					return;
 	 				}else{
 	 					try {
-	 						jsonObj = new JSONObject(mArrLines.get(0).trim());
+	 						jsonObj = new JSONObject(sbLine.toString());
     	 					requestType = jsonObj.getInt(IPCSocketImpl.KEY_CONFIG_STATE);
 	 					}catch (JSONException e1) {
 	 						Log.e(TAG, ">>lilei>>receiveMsg error:"+e1.toString());
@@ -299,6 +323,7 @@ public class ForwardTask extends Task{
  			}catch (ActivityNotFoundException e) {
  				Log.d(TAG, ">>lilei>>startActivity fail !!!");
  				ipcImpl.androidAppStartFail(packageName, className);
+ 				return;
  			}
  			//Log.d(TAG, ">>lilei>>startActivity success!");
  			ipcImpl.androidAppStartSuccess(packageName, className);
@@ -329,6 +354,11 @@ public class ForwardTask extends Task{
             Log.d(TAG, ">>lilei>>setDateTime "+year+"-"+month+"-"+day
             		+" "+hour+":"+minute+":"+second);
             setDateTime(c.getTimeInMillis());
+        }
+        public static long getTimeNow(){
+            Calendar c = Calendar.getInstance();
+            long now = c.getTimeInMillis();
+            return now;
         }
         void setDateTime(long timemills){
         	Calendar c = Calendar.getInstance();

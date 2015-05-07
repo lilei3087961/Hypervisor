@@ -437,8 +437,6 @@ public class IPCSocketImpl  extends  IPCImpl{
     * @param className
     */
   public void androidSendOneApp(String packageName,String className){
-	   Log.i(TAG,">>lilei>>send:android send one app"
-			   +" packageName:"+packageName+" className:"+className);
        mComponentName =  new ComponentName(packageName,className);
        String title = null;
        Bitmap appIcon = null;
@@ -446,6 +444,9 @@ public class IPCSocketImpl  extends  IPCImpl{
            appIcon = mContext.getIconCache().getComponentIcon(mComponentName);
            title = mContext.getIconCache().getApplicationTitle(mComponentName);
        }
+       Log.i(TAG,">>lilei>>send:android send one app"
+               +" packageName:"+packageName+" className:"+className
+               +" title:"+title+" appIcon:"+appIcon);
 	   sendAndroidMessageToLinux(Config.MESSAGE_ANDROID_SENDONEAPP,packageName,
 			   className,title,appIcon);
   }
@@ -564,14 +565,15 @@ public class IPCSocketImpl  extends  IPCImpl{
     * @param configState
     */
    public void sendAndroidMessageToLinux(int configState){
+       Socket client = null;
 	   	try{
-            Socket client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+            client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
             dos=new DataOutputStream(new BufferedOutputStream(client.getOutputStream()));
             if(USE_JSON){
             	try{
                     JSONObject jsonObj = new JSONObject();
                     jsonObj.put(KEY_CONFIG_STATE,configState);
-               	 	Log.i(TAG,">>lilei>> jsonObj.toString:"+jsonObj.toString()
+               	 	Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(1) jsonObj.toString:"+jsonObj.toString()
             			 +" toCharArray size:"+jsonObj.toString().toCharArray().length);
                	 	dos.writeChars(jsonObj.toString());
             	}catch (JSONException e) {
@@ -587,8 +589,10 @@ public class IPCSocketImpl  extends  IPCImpl{
             }
             dos.flush();
 	   	} catch (IOException e) {
-                   e.printStackTrace();
-	   	}
+            e.printStackTrace();
+	   	}finally{
+	        close(client);
+	    }
    }
    
    /**
@@ -598,20 +602,16 @@ public class IPCSocketImpl  extends  IPCImpl{
     * @param packageName
     */
    public void sendAndroidMessageToLinux(int configState,String packageName){
-       char[ ]chars =  packageName.toCharArray();
-       short namelength = (short)(chars.length * 2);
-       
+       Socket client = null;
        try{
-    	   Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(..) 11 ");
-         Socket client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
-         Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(..) 22 ");
+         client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
          dos=new DataOutputStream(new BufferedOutputStream(client.getOutputStream()));
          if(USE_JSON){
         	 try{
             	 JSONObject jsonObj = new JSONObject();
             	 jsonObj.put(KEY_CONFIG_STATE,configState);
             	 jsonObj.put(KEY_PACKAGE_NAME,packageName);
-            	 Log.i(TAG,">>lilei>> jsonObj.toString:"+jsonObj.toString()
+            	 Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(2) jsonObj.toString:"+jsonObj.toString()
             			 +" toCharArray size:"+jsonObj.toString().toCharArray().length);
             	 dos.writeChars(jsonObj.toString());
         	 }catch (JSONException e) {
@@ -620,6 +620,8 @@ public class IPCSocketImpl  extends  IPCImpl{
      			 Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(2) error:"+e.toString());
 	     	 }
          }else{
+             char[ ]chars =  packageName.toCharArray();
+             short namelength = (short)(chars.length * 2);
              dos.writeShort(configState);
              dos.writeShort(namelength);
              dos.writeChars(packageName);
@@ -627,12 +629,13 @@ public class IPCSocketImpl  extends  IPCImpl{
              	dos.writeByte(END_CHAR);
              }
          }
-         Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(..) 33 ");
          dos.flush();
 
        } catch (IOException e) {
-    	   Log.i(TAG,">>lilei>>sendAndroidMessageToLinux error:"+e.toString());
-              e.printStackTrace();
+    	   Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(2) error:"+e.toString());
+           e.printStackTrace();
+       }finally{
+           close(client);
        }
    }
    
@@ -645,14 +648,17 @@ public class IPCSocketImpl  extends  IPCImpl{
     */
    public void sendAndroidMessageToLinux(int configState,String packageName,
 		   String className){
+       if(!isValidActivity(packageName,className)){
+           return;
+       }
        char[] packageChars =  packageName.toCharArray(); 
        short packageLength = (short)(packageChars.length * 2);
        
        char[] classChars = className.toCharArray();
        short classLength = (short)(classChars.length * 2);
-       
+       Socket client = null;
        try{
-         Socket client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+         client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
          dos=new DataOutputStream(new BufferedOutputStream(client.getOutputStream()));
          if(USE_JSON){
         	 try{
@@ -660,7 +666,7 @@ public class IPCSocketImpl  extends  IPCImpl{
             	 jsonObj.put(KEY_CONFIG_STATE,configState);
             	 jsonObj.put(KEY_PACKAGE_NAME,packageName);
             	 jsonObj.put(KEY_CLASS_NAME,className);
-            	 Log.i(TAG,">>lilei>> jsonObj.toString:"+jsonObj.toString()
+            	 Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(3) jsonObj.toString:"+jsonObj.toString()
             			 +" toCharArray size:"+jsonObj.toString().toCharArray().length);
             	 dos.writeChars(jsonObj.toString());
         	 }catch (JSONException e) {
@@ -681,7 +687,10 @@ public class IPCSocketImpl  extends  IPCImpl{
          dos.flush();
 
        } catch (IOException e) {
-              e.printStackTrace();
+           Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(3) error:"+e.toString());
+           e.printStackTrace();
+       }finally{
+           close(client);
        }
    }
    
@@ -697,7 +706,9 @@ public class IPCSocketImpl  extends  IPCImpl{
    public void sendAndroidMessageToLinux(int configState,String packageName,
 		   String className,String title,Bitmap appIcon){
        //String title = null;
-	   
+	   if(!isValidActivity(packageName,className)){
+	       return;
+	   }
 	   Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(5) appIcon!=null?"
 			   +(appIcon != null ? "true":"false")+" configState:"+configState);
        ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -713,10 +724,9 @@ public class IPCSocketImpl  extends  IPCImpl{
        
        char[] titlechar = title.toCharArray();
        short titlelength  = (short)(titlechar.length * 2);
-
+       Socket client = null;
        try{
-
-    	 Socket client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+         client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
          dos=new DataOutputStream(new BufferedOutputStream(client.getOutputStream()));
          if(USE_JSON){
         	 try{
@@ -728,8 +738,9 @@ public class IPCSocketImpl  extends  IPCImpl{
             	 jsonObj.put(KEY_BYTEMAP,Base64.encodeToString(
             			 bitmapbyte,0,bitmapbyte.length,Base64.DEFAULT));
 
-            	 Log.i(TAG,">>lilei>>"+" toCharArray size:"+jsonObj.toString().toCharArray().length
-            			 +" jsonObj.toString:"+jsonObj.toString());
+            	 Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(5) toCharArray size:"+
+            	 jsonObj.toString().toCharArray().length+" timeNow"+ForwardTask.getTimeNow());
+            			 //+" jsonObj.toString:"+jsonObj.toString());
             	 
             	 dos.writeChars(jsonObj.toString());
         	 }catch (JSONException e) {
@@ -755,9 +766,10 @@ public class IPCSocketImpl  extends  IPCImpl{
          dos.flush();
   
          } catch (IOException e) {
-              e.printStackTrace();
+             Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(5) error:"+e.toString());
+             e.printStackTrace();
          }finally{
-        	 close();
+        	 close(client);
          }
   }
    /***
@@ -802,9 +814,9 @@ public class IPCSocketImpl  extends  IPCImpl{
 			   Log.i(TAG,">>lilei>>send:send all app to linux,error index:"+i);
 		   }
 	   }
-	   
+	   Socket client = null;
 	   try{
-		   	 Socket client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+		   	 client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
 	         dos=new DataOutputStream(new BufferedOutputStream(client.getOutputStream()));
 
 	         Log.i(TAG,">>lilei>>send:send all app to linux,>>2>>  "
@@ -853,15 +865,28 @@ public class IPCSocketImpl  extends  IPCImpl{
     	         }
 	         }
 	         dos.flush();
-	  
+	         
          } catch (IOException e) {
-        	 Log.i(TAG,">>lilei>>send:send all app to linux error:"+e.toString());
+        	 Log.i(TAG,">>lilei>>sendAllAndroidAppToLinux() error:"+e.toString());
               e.printStackTrace();
          }finally{
-        	 close();
+        	 close(client);
          }
    }
-   
+   public boolean isValidActivity(String packageName,String className){
+       Intent intent = new Intent();
+       intent.setClassName(packageName, className);
+
+       ResolveInfo component =mContext.getPackageManager().resolveActivity(intent, 0);
+       if(component != null) {  
+           //Log.i(TAG,"valid Activity() 1111 component:"+component);
+           return true;
+       }else{
+           Log.i(TAG,">>lilei>>error!! invalid Activity for packageName:"+packageName
+                   +" className:"+className);
+           return false;
+       }
+   }
    /*add by lilei end*/
   /** start packagename's application*/
   public void startApplication(String packagename){
@@ -873,17 +898,20 @@ public class IPCSocketImpl  extends  IPCImpl{
   /**
    * close dis, dos
    */ 
-  public void close(){
+  public void close(Socket socket){
   
    try{
        if(dis!=null)
            dis.close();
        if(dos!=null)
           dos.close();
+       if(socket != null)
+           socket.close();
        dis=null;
        dos=null;
+       socket = null;
       }catch (IOException e) {
-
+          Log.i(TAG, ">>lilei>>close error e:"+e.toString());
       }
 
 

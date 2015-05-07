@@ -36,4 +36,5 @@ public interface Config {
     public static final short MESSAGE_LINUX_SET_TIME           = 130;
     public static final short MESSAGE_ANDROID_KEYCODE_HOME     = 131;
     public static final short MESSAGE_ANDROID_FACTORY_RESET     = 132;
+    public static final short MESSAGE_ANDROID_APP_ERROR_EXIT     = 133;
 }
