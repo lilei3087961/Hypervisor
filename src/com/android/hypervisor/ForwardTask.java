@@ -47,15 +47,17 @@ public class ForwardTask extends Task{
           static HashMap<String, Socket> map=new HashMap<String, Socket>();
           private static final String TAG = "ForwardTask"; 
           Socket socket;
-          DataInputStream dis;
-          DataOutputStream dos;
-          BufferedReader br;
+          DataInputStream dis = null;
+          DataOutputStream dos = null;
+          BufferedReader br = null;
           private boolean onWork=true;
+          private boolean mSingleConnection = false;
           Intent[] mIntents;
           Intent mIntent;
           ComponentName mComponentName;
           String line = "";
           StringBuilder sbLine;
+
           final ArrayList<String> mArrLines = new  ArrayList<String>();
           public final HypervisorApplication mApp;
           public IPCSocketImpl  ipcImpl; 
@@ -79,10 +81,15 @@ public class ForwardTask extends Task{
                this.ipcImpl = new IPCSocketImpl(app);
                ipcImpl.setSocketImpl(socket, dis, dos); 
         }
+        public ForwardTask(Socket socket, HypervisorApplication  app,boolean isSingleConnection){
+            this(socket,app);
+            mSingleConnection = isSingleConnection;
+
+        }
         //add by lilei begin
         void testSocket(IPCSocketImpl ipcImpl){
         	Log.i(TAG, ">>lilei>>begin test socket");
-        	ipcImpl.androidAppBasicInfo();
+        	ipcImpl.androidReady();
         }
           
         //add by lilei end
@@ -114,49 +121,58 @@ public class ForwardTask extends Task{
         }
 
          public void run() {
+             if(mSingleConnection){//add by lilei
+                 while(onWork){
+                     try{
+                         receiveMsgSingle();
+                     }catch(Exception e){
+                         e.printStackTrace();
+                         Log.i(TAG, ">>lilei>>ForwardTask.run 11 error:"+e.toString());
+                         break;
+                     }
+                }
+             }else{
                 if(onWork){
 
-                        try{
-                                receiveMsg();
-                        }catch(Exception e){
-                                e.printStackTrace();
-                                //break;
-                        }
+                    try{
+                        receiveMsg();
+                    }catch(Exception e){
+                        e.printStackTrace();
+                        Log.i(TAG, ">>lilei>>ForwardTask.run 22 error trace:"+
+                        Log.getStackTraceString(e));
+                    }
                 }
-
-                try{
-                        if(socket!=null)
-                                socket.close();
-                          if(dis!=null)
-                                 dis.close();
-                          if(dos!=null)
-                                 dos.close();
-                        socket=null;
-                        dis=null;
-                        dos=null;
-                }catch (IOException e) {
-
-                }
+             }
+             try{
+                 if(socket!=null)
+                         socket.close();
+                   if(dis!=null)
+                          dis.close();
+                   if(dos!=null)
+                          dos.close();
+                 socket=null;
+                 dis=null;
+                 dos=null;
+             }catch (IOException e) {
+                 Log.i(TAG, ">>lilei>>ForwardTask.run 33 error:"+e.toString());
+             }
         }
 
 
         public void receiveMsg() throws IOException {
-
                 //int requestType = dis.readInt();
-	 			int requestType = -1;
-	 			JSONObject jsonObj = null;
+                JSONObject jsonObj = null;
 	 			mArrLines.clear();
 	 			if(IPCSocketImpl.USE_JSON){
 	 			   Log.w(TAG, ">>lilei>>~~receiveMsg 1111");
 	 			
-	 			/*	
 	 			  //阻塞方法
 	 			  while((line = br.readLine()) != null){
 	 					Log.d(TAG, ">>lilei>>json~~ receiveMsg line.trim:"+line.trim()
 	 					        +" timeNow:"+getTimeNow());
 	 					mArrLines.add(line.trim());
-	 				}  */
-	 			    char[] buffer = new char[1024];
+	 			  }
+	 		       /*      char[] buffer = new char[1024];
 	                sbLine = new StringBuilder();
 	 			    int len;
 	 			    //非阻塞方法
@@ -165,82 +181,105 @@ public class ForwardTask extends Task{
 	 			           //Log.w(TAG, ">>lilei>>receiveMsg buffer["+i+"]:"+String.valueOf(buffer[i]).trim());
 	 			           sbLine.append(String.valueOf(buffer[i]).trim());
 	 			        }
-	 			    }
+	 			    } */
 	 			    
- 	 				Log.w(TAG, ">>lilei>>receiveMsg 222 len:"+sbLine.toString().length()
- 	 				        +" sbLine:"+sbLine.toString());
-	 				if(sbLine.toString().length() == 0){
-	 					Log.w(TAG, ">>lilei>>receiveMsg>> sbLine is null!!");
+ 	 				Log.w(TAG, ">>lilei>>receiveMsg 222 ");
+	 				if(mArrLines.size() != 1){
+	 					Log.w(TAG, ">>lilei>>receiveMsg>> error mArrLines.size():"+mArrLines.size());
 	 					return;
 	 				}else{
 	 					try {
-	 						jsonObj = new JSONObject(sbLine.toString());
-    	 					requestType = jsonObj.getInt(IPCSocketImpl.KEY_CONFIG_STATE);
+	 						jsonObj = new JSONObject(mArrLines.get(0));
+	 						Log.e(TAG, ">>lilei>>receiveMsg() 333");
+	 						doReceiveMsg(jsonObj);
 	 					}catch (JSONException e1) {
-	 						Log.e(TAG, ">>lilei>>receiveMsg error:"+e1.toString());
+	 						Log.e(TAG, ">>lilei>>receiveMsg() error:"+e1.toString());
 	 					}
 	 				}
-	 			}else{
-    	 			requestType = Integer.parseInt(dis.readLine());
-    	 			Log.d(TAG, ">>lilei>>receiveMsg requestType="+requestType);
-    	 			while((line = dis.readLine()) != null){
-    	 				Log.d(TAG, ">>lilei>>~~ receiveMsg line.trim:"+line.trim());
-    	 				mArrLines.add(line.trim());
-    	 			}
-                	Log.d(TAG, ">>lilei>>receiveMsg szie:"+mArrLines.size());
 	 			}
-                switch (requestType) {
-                    case Config.MESSAGE_LINUX_GETALL:
-                        //should send all application size--the applicatoin should have main and launch activity..
-                    	ipcImpl.androidAppBasicInfo();
-                            break;
-                    case Config.MESSAGE_LINUX_GETONEAPP:
-                    	linuxGetOneApp(jsonObj,mArrLines);
-                          //when receive this message, we should send one app information...
-                            break;
-                    case Config.MESSAGE_LINUX_APP_START:
-                    	linuxAppStart(jsonObj,mArrLines);
-                            break;
-                    case Config.MESSAGE_LINUX_SET_TIME:
-                    	//setDateTime(2014,1,1,1,1,1); //for test
-                    	linuxSetTime(jsonObj,mArrLines);
-                    		break;
-                    case Config.MESSAGE_LINUX_SET_LANGUAGE:
-                    	//setLanguage(Locale.ENGLISH);  //for test
-                    	linuxSetLanguage(jsonObj,mArrLines);
-                    		break;
-                    case Config.MESSAGE_ANDROID_FACTORY_RESET:
-                    	FactoryReset(false);
-                    		break;
-                    case Config.MESSAGE_LINUX_MEMORYCLEAN:
-                            break;
-                    case Config.MESSAGE_LINUX_SEND_KEY:
-                   //./base/core/java/android/hardware/input/InputManager.java : public boolean injectInputEvent(InputEvent event, int mode)
-                        InputManager im = (InputManager) (mApp.getSystemService(Context.INPUT_SERVICE));
-                          
-                            break;
-                    case Config.MESSAGE_LINUX_SWITCH_ANDROID_FG:
-                            break; 
-                    case Config.MESSAGE_LINUX_SWITCH_ANDROID_BG:
-                            break; 
-                    case Config.MESSAGE_LINUX_AUDIO_PERMIT:
-                            break;
-                    case Config.MESSAGE_ANDROID_END_AUDIO:
-                            break; 
-                    case Config.MESSAGE_LINUX_ENABLEAUDIO: 
-                            break;  
-  
-                }
+                
         }
  		//add by lilei begin
+        public void receiveMsgSingle() throws IOException {
+            line = "";
+            JSONObject jsonObj = null;
+            int requestType = -1;
+            while((line = br.readLine()) != null){
+                try {
+                    Log.d(TAG, ">>lilei>>receiveMsgSingle line.trim:"+line.trim());
+                    jsonObj = new JSONObject(line.toString().trim());
+                    doReceiveMsg(jsonObj);
+                }catch (JSONException e1) {
+                    Log.e(TAG, ">>lilei>>receiveMsgSingle() error:"+e1.toString());
+                }
+            }
+            try {
+                Thread.sleep(500);
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+                Log.i(TAG,">>lilei>>receiveMsg2() error:"+e.toString());
+            }
+        }
+        void doReceiveMsg(JSONObject jsonObj){
+            int requestType = -1;
+            try {
+                requestType = jsonObj.getInt(IPCSocketImpl.KEY_MESSAGE_TYPE);
+            }catch (JSONException e) {
+                Log.e(TAG, ">>lilei>>doReceiveMsg error:"+e.toString());
+            }
+            switch (requestType) {
+                case Config.MESSAGE_LINUX_GETALL:
+                    //should send all application size--the applicatoin should have main and launch activity..
+                    ipcImpl.androidAppBasicInfo();
+                        break;
+                case Config.MESSAGE_LINUX_GETONEAPP:
+                    linuxGetOneApp(jsonObj,null);
+                      //when receive this message, we should send one app information...
+                        break;
+                case Config.MESSAGE_LINUX_APP_START:
+                    linuxAppStart(jsonObj,null);
+                        break;
+                case Config.MESSAGE_LINUX_SET_TIME:
+                    //setDateTime(2014,1,1,1,1,1); //for test
+                    linuxSetTime(jsonObj,null);
+                        break;
+                case Config.MESSAGE_LINUX_SET_LANGUAGE:
+                    //setLanguage(Locale.ENGLISH);  //for test
+                    linuxSetLanguage(jsonObj,null);
+                        break;
+                case Config.MESSAGE_ANDROID_FACTORY_RESET:
+                    FactoryReset(false);
+                        break;
+                case Config.MESSAGE_LINUX_MEMORYCLEAN:
+                        break;
+                case Config.MESSAGE_LINUX_SEND_KEY:
+               //./base/core/java/android/hardware/input/InputManager.java : public boolean injectInputEvent(InputEvent event, int mode)
+                    InputManager im = (InputManager) (mApp.getSystemService(Context.INPUT_SERVICE));
+                      
+                        break;
+                case Config.MESSAGE_LINUX_SWITCH_ANDROID_FG:
+                        break; 
+                case Config.MESSAGE_LINUX_SWITCH_ANDROID_BG:
+                        break; 
+                case Config.MESSAGE_LINUX_AUDIO_PERMIT:
+                        break;
+                case Config.MESSAGE_ANDROID_END_AUDIO:
+                        break; 
+                case Config.MESSAGE_LINUX_ENABLEAUDIO: 
+                        break;  
+
+            }
+        }
         void linuxGetOneApp(JSONObject jsonObj,ArrayList<String> arrLines){
         	if(IPCSocketImpl.USE_JSON){
         		try{
             		String packageName = jsonObj.getString(IPCSocketImpl.KEY_PACKAGE_NAME);
             		String className = jsonObj.getString(IPCSocketImpl.KEY_CLASS_NAME);
             		ipcImpl.androidSendOneApp(packageName,className);
+            		//ipcImpl.testAndroidSendOneApp(packageName, className);//test bytemap
         		}catch (JSONException e1) {
-						Log.e(TAG, ">>lilei>>receiveMsg error:"+e1.toString());
+						Log.e(TAG, ">>lilei>>linuxGetOneApp() error:"+e1.toString());
 			    }
         	}else{           		
                 if(arrLines.size() == 4){
@@ -257,7 +296,7 @@ public class ForwardTask extends Task{
             		String className = jsonObj.getString(IPCSocketImpl.KEY_CLASS_NAME);
             		startActivity(packageName,className);	
         		}catch (JSONException e1) {
-					Log.e(TAG, ">>lilei>>receiveMsg error:"+e1.toString());
+					Log.e(TAG, ">>lilei>>linuxAppStart() error:"+e1.toString());
 			    }
         	}else{
             	if(arrLines.size()==4){
@@ -273,7 +312,7 @@ public class ForwardTask extends Task{
             		long timeInMills = jsonObj.getLong(IPCSocketImpl.KEY_TIME_IN_MILLS);
             		setDateTime(timeInMills);
         		}catch (JSONException e1) {
-					Log.e(TAG, ">>lilei>>receiveMsg error:"+e1.toString());
+					Log.e(TAG, ">>lilei>>linuxSetTime() error:"+e1.toString());
 			    }
         	}else{
             	if(arrLines.size()==1){
@@ -291,7 +330,7 @@ public class ForwardTask extends Task{
             		String area = jsonObj.getString(IPCSocketImpl.KEY_AREA);
             		setLanguage(language,area);
         		}catch (JSONException e1) {
-					Log.e(TAG, ">>lilei>>receiveMsg error:"+e1.toString());
+					Log.e(TAG, ">>lilei>>linuxSetLanguage() error:"+e1.toString());
 			    }
         	}else{
             	if(arrLines.size()==1){
@@ -325,7 +364,7 @@ public class ForwardTask extends Task{
  				ipcImpl.androidAppStartFail(packageName, className);
  				return;
  			}
- 			//Log.d(TAG, ">>lilei>>startActivity success!");
+ 			Log.d(TAG, ">>lilei>>startActivity success!");
  			ipcImpl.androidAppStartSuccess(packageName, className);
  		}
         boolean isRunning(Context context,String packageName){

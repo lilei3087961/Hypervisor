@@ -185,16 +185,34 @@ public class IPCService extends Service {
                ThreadPool pool=ThreadPool.getInstance();
                Log.v("IPCService", ">>>>chenrui>>>>serverThread>>>run");
                //testSocket(); //for test by lilei
+               //add by lilei begin
                mIPCSocketImpl = new IPCSocketImpl(mApp);
-               mIPCSocketImpl.androidReady();
+               Socket  readySocket = new Socket(IPCSocketImpl.SERVER_HOST_IP, 
+                       IPCSocketImpl.SERVER_HOST_PORT);
+               if(IPCSocketImpl.SINGLE_CONNECTION){
+                   //for test begin
+                   mIPCSocketImpl.androidReady(readySocket);
+                   
+ /*                  //test tranfer bytemap          
+                   String packageName = "com.android.settings";
+                   String className = "com.android.settings.Settings";
+                   mIPCSocketImpl.testAndroidSendOneApp(packageName, className);
+                   ForwardTask task=new ForwardTask(readySocket,mApp,true);
+                   //for test end  
+                   pool.addTask(task);//*/
+               }else{
+                   mIPCSocketImpl.androidReady();
+               }
+               //add by lilei end
                while(true){
                    Log.v(TAG, ">>lilei>>serverThread>>wait for connect...");
                    Socket socket= mServerSocket.accept();
-                   Log.v(TAG, ">>lilei>>serverThread>>connecting ");
-                   ForwardTask task=new ForwardTask(socket, mApp);
+                   Log.v(TAG, ">>lilei>>serverThread>>get a connection!~~~");
+                   ForwardTask task=new ForwardTask(socket,mApp);
                    pool.addTask(task);
                }
            } catch (IOException e) {
+               Log.v(TAG, ">>lilei>>serverThread error:"+e.toString());
         	   e.printStackTrace();
            }
         }

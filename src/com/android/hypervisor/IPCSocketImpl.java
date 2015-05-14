@@ -62,7 +62,11 @@ public class IPCSocketImpl  extends  IPCImpl{
    private String       TAG = "IPCSocketImpl";  
    private Socket       mClientSocket;
    public static final boolean USE_JSON = true;
-   static final String KEY_CONFIG_STATE = "messageType";
+   //add by lieli for single connection begin
+   public static final boolean SINGLE_CONNECTION = true;
+   private boolean singleConnectionMode = false;
+   //add by lieli for single connection end
+   static final String KEY_MESSAGE_TYPE = "messageType";
    static final String KEY_PACKAGE_NAME = "packageName";
    static final String KEY_CLASS_NAME = "activityName";
    static final String KEY_CLASS_TITLE = "title";
@@ -391,6 +395,10 @@ public class IPCSocketImpl  extends  IPCImpl{
 	   Log.i(TAG,">>lilei>>send:android Ready");
 	   sendAndroidMessageToLinux(Config.MESSAGE_ANDROID_READY);
    }
+   public void androidReady(Socket socket){
+       Log.i(TAG,">>lilei>>send:android Ready socket");
+       sendAndroidMessageToLinux(Config.MESSAGE_ANDROID_READY,socket);
+   }
    /**
    	if Android error,send message to LInux OS
     **/
@@ -449,6 +457,49 @@ public class IPCSocketImpl  extends  IPCImpl{
                +" title:"+title+" appIcon:"+appIcon);
 	   sendAndroidMessageToLinux(Config.MESSAGE_ANDROID_SENDONEAPP,packageName,
 			   className,title,appIcon);
+  }
+  
+  /***
+   * ####### only for test transfer bytemap test
+   * @param packageName
+   * @param className
+   */
+  public void testAndroidSendOneApp(String packageName,String className){
+      mComponentName =  new ComponentName(packageName,className);
+      String title = null;
+      Bitmap appIcon = null;
+      if(mContext.getIconCache()!= null){
+          appIcon = mContext.getIconCache().getComponentIcon(mComponentName);
+          title = mContext.getIconCache().getApplicationTitle(mComponentName);
+      }
+
+      ByteArrayOutputStream baos = new ByteArrayOutputStream();
+      appIcon.compress(Bitmap.CompressFormat.PNG, 100, baos);
+      short bitmapSize = (short)baos.size();
+      byte[]bitmapbyte =  baos.toByteArray();
+      Socket client = null;
+      Log.i(TAG,">>lilei>>#use Base64 byteTest 11##testAndroidSendOneApp() android send one app"
+              +" packageName:"+packageName+" className:"+className
+              +" title:"+title+" appIcon:"+appIcon+" bitmapSize:"+bitmapSize);
+      try{
+        client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+        dos=new DataOutputStream(new BufferedOutputStream(client.getOutputStream()));
+        //dos.write(bitmapbyte);
+        //dos.writeChars(bitmapbyte.toString());
+        byte[] byteTest = new byte[]{'a','b'};
+        //String str = "李";
+        //dos.writeChars(byteTest.toString());
+        String base64Str = Base64.encodeToString(byteTest,0,byteTest.length,Base64.DEFAULT);
+        Log.i(TAG,">>lilei>>~~testAndroidSendOneApp() byteTest.base64:"
+                +base64Str+" bitmapbyte.length:"+byteTest.length);
+        dos.writeChars(base64Str);
+        dos.flush();
+      }catch (IOException e) {
+          Log.i(TAG,">>lilei>>testAndroidSendOneApp() error:"+e.toString());
+          e.printStackTrace();
+      }finally{
+          close(client);
+      }
   }
   /**
  	when install an app,send message to linux OS
@@ -564,17 +615,23 @@ public class IPCSocketImpl  extends  IPCImpl{
     * 
     * @param configState
     */
-   public void sendAndroidMessageToLinux(int configState){
+   public void sendAndroidMessageToLinux(int configState,Socket...socket){
        Socket client = null;
+       singleConnectionMode = SINGLE_CONNECTION && socket!=null && socket.length ==1;
 	   	try{
-            client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+	   	    if(singleConnectionMode){
+	   	        client = socket[0];
+	   	    }else{
+	   	        client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+	   	    }
             dos=new DataOutputStream(new BufferedOutputStream(client.getOutputStream()));
             if(USE_JSON){
             	try{
                     JSONObject jsonObj = new JSONObject();
-                    jsonObj.put(KEY_CONFIG_STATE,configState);
+                    jsonObj.put(KEY_MESSAGE_TYPE,configState);
                	 	Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(1) jsonObj.toString:"+jsonObj.toString()
-            			 +" toCharArray size:"+jsonObj.toString().toCharArray().length);
+            			 +" toCharArray size:"+jsonObj.toString().toCharArray().length
+            			 +" singleConnectionMode:"+singleConnectionMode);
                	 	dos.writeChars(jsonObj.toString());
             	}catch (JSONException e) {
         			// TODO Auto-generated catch block
@@ -591,6 +648,8 @@ public class IPCSocketImpl  extends  IPCImpl{
 	   	} catch (IOException e) {
             e.printStackTrace();
 	   	}finally{
+	   	    if(singleConnectionMode)  //singleConnectionMode do not close socket
+	   	        return;
 	        close(client);
 	    }
    }
@@ -609,7 +668,7 @@ public class IPCSocketImpl  extends  IPCImpl{
          if(USE_JSON){
         	 try{
             	 JSONObject jsonObj = new JSONObject();
-            	 jsonObj.put(KEY_CONFIG_STATE,configState);
+            	 jsonObj.put(KEY_MESSAGE_TYPE,configState);
             	 jsonObj.put(KEY_PACKAGE_NAME,packageName);
             	 Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(2) jsonObj.toString:"+jsonObj.toString()
             			 +" toCharArray size:"+jsonObj.toString().toCharArray().length);
@@ -663,7 +722,7 @@ public class IPCSocketImpl  extends  IPCImpl{
          if(USE_JSON){
         	 try{
             	 JSONObject jsonObj = new JSONObject();
-            	 jsonObj.put(KEY_CONFIG_STATE,configState);
+            	 jsonObj.put(KEY_MESSAGE_TYPE,configState);
             	 jsonObj.put(KEY_PACKAGE_NAME,packageName);
             	 jsonObj.put(KEY_CLASS_NAME,className);
             	 Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(3) jsonObj.toString:"+jsonObj.toString()
@@ -731,7 +790,7 @@ public class IPCSocketImpl  extends  IPCImpl{
          if(USE_JSON){
         	 try{
             	 JSONObject jsonObj = new JSONObject();
-            	 jsonObj.put(KEY_CONFIG_STATE,configState);
+            	 jsonObj.put(KEY_MESSAGE_TYPE,configState);
             	 jsonObj.put(KEY_PACKAGE_NAME,packageName);
             	 jsonObj.put(KEY_CLASS_NAME,className);
             	 jsonObj.put(KEY_CLASS_TITLE,title);
@@ -765,12 +824,12 @@ public class IPCSocketImpl  extends  IPCImpl{
          }
          dos.flush();
   
-         } catch (IOException e) {
-             Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(5) error:"+e.toString());
-             e.printStackTrace();
-         }finally{
-        	 close(client);
-         }
+      } catch (IOException e) {
+         Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(5) error:"+e.toString());
+         e.printStackTrace();
+      }finally{
+    	 close(client);
+      }
   }
    /***
     * send all android package and class info 
@@ -826,7 +885,7 @@ public class IPCSocketImpl  extends  IPCImpl{
 	        		 JSONObject jsonObj = new JSONObject();
 	        		 JSONObject objApp;
 	        	 
-    	        	 jsonObj.put(KEY_CONFIG_STATE,Config.MESSAGE_ANDROID_APPBASICINFO);
+    	        	 jsonObj.put(KEY_MESSAGE_TYPE,Config.MESSAGE_ANDROID_APPBASICINFO);
     	        	 JSONArray allApps = new JSONArray();
     	        	 for(int i=0;i<listName.size();i++){
         	        	 String packageName = listName.get(i).get("packageName");

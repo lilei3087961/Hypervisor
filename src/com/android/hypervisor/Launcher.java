@@ -144,8 +144,8 @@ public final class Launcher extends Activity{
               isfirstResume = false;
               return; 
         }else{
-        	  mApp.getModel().getAllAppInfo().doChangeInTask(
-        			Config.MESSAGE_ANDROID_KEYCODE_HOME, null, null);
+//        	  mApp.getModel().getAllAppInfo().doChangeInTask(
+//        			Config.MESSAGE_ANDROID_KEYCODE_HOME, null, null);
             //here, we will deal with : back key and home key , if onResume is not called by the first time, it will send message to Linux and switch to Linux OS
               Log.v(TAG, ">>>>chenrui>>>>not first resume, we should send message to Linux OS and exit android"); 
 
