@@ -125,6 +125,7 @@ public class ForwardTask extends Task{
                  while(onWork){
                      try{
                          receiveMsgSingle();
+                         Thread.sleep(500);  
                      }catch(Exception e){
                          e.printStackTrace();
                          Log.i(TAG, ">>lilei>>ForwardTask.run 11 error:"+e.toString());
@@ -172,16 +173,16 @@ public class ForwardTask extends Task{
 	 					        +" timeNow:"+getTimeNow());
 	 					mArrLines.add(line.trim());
 	 			  }
-	 		       /*      char[] buffer = new char[1024];
+	 		      /*       char[] buffer = new char[1024];
 	                sbLine = new StringBuilder();
 	 			    int len;
 	 			    //非阻塞方法
 	 			    while((len = br.read(buffer)) != -1){
 	 			        for(int i=0;i<len;i++){
-	 			           //Log.w(TAG, ">>lilei>>receiveMsg buffer["+i+"]:"+String.valueOf(buffer[i]).trim());
+	 			           Log.w(TAG, ">>lilei>>~~receiveMsg buffer["+i+"]:"+String.valueOf(buffer[i]).trim());
 	 			           sbLine.append(String.valueOf(buffer[i]).trim());
 	 			        }
-	 			    } */
+	 			    } //*/
 	 			    
  	 				Log.w(TAG, ">>lilei>>receiveMsg 222 ");
 	 				if(mArrLines.size() != 1){
@@ -207,19 +208,17 @@ public class ForwardTask extends Task{
             while((line = br.readLine()) != null){
                 try {
                     Log.d(TAG, ">>lilei>>receiveMsgSingle line.trim:"+line.trim());
+                    if(line.trim().equals("adam")){  //for test
+                        Log.d(TAG, ">>lilei>>receiveMsgSingle adam send androidHeartBeat");
+                        ipcImpl.androidHeartBeat();
+                    }
                     jsonObj = new JSONObject(line.toString().trim());
                     doReceiveMsg(jsonObj);
                 }catch (JSONException e1) {
                     Log.e(TAG, ">>lilei>>receiveMsgSingle() error:"+e1.toString());
                 }
             }
-            try {
-                Thread.sleep(500);
-            } catch (InterruptedException e) {
-                // TODO Auto-generated catch block
-                e.printStackTrace();
-                Log.i(TAG,">>lilei>>receiveMsg2() error:"+e.toString());
-            }
+
         }
         void doReceiveMsg(JSONObject jsonObj){
             int requestType = -1;

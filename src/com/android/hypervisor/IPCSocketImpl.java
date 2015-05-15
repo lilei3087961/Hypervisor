@@ -63,7 +63,7 @@ public class IPCSocketImpl  extends  IPCImpl{
    private Socket       mClientSocket;
    public static final boolean USE_JSON = true;
    //add by lieli for single connection begin
-   public static final boolean SINGLE_CONNECTION = true;
+   public static final boolean SINGLE_CONNECTION = false;
    private boolean singleConnectionMode = false;
    //add by lieli for single connection end
    static final String KEY_MESSAGE_TYPE = "messageType";
@@ -960,6 +960,7 @@ public class IPCSocketImpl  extends  IPCImpl{
   public void close(Socket socket){
   
    try{
+       Log.i(TAG,">>lilei>>close socket !!!!!");
        if(dis!=null)
            dis.close();
        if(dos!=null)

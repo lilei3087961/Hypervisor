@@ -187,21 +187,32 @@ public class IPCService extends Service {
                //testSocket(); //for test by lilei
                //add by lilei begin
                mIPCSocketImpl = new IPCSocketImpl(mApp);
-               Socket  readySocket = new Socket(IPCSocketImpl.SERVER_HOST_IP, 
-                       IPCSocketImpl.SERVER_HOST_PORT);
+
                if(IPCSocketImpl.SINGLE_CONNECTION){
                    //for test begin
-                   mIPCSocketImpl.androidReady(readySocket);
-                   
- /*                  //test tranfer bytemap          
-                   String packageName = "com.android.settings";
+                   Socket  readySocket = null;
+                   try{
+                       readySocket = new Socket(IPCSocketImpl.SERVER_HOST_IP, 
+                               IPCSocketImpl.SERVER_HOST_PORT);
+                       mIPCSocketImpl.androidReady(readySocket);
+                   }catch (IOException e) {
+                       Log.v(TAG, ">>lilei>>serverThread 111 error:"+e.toString());
+                       e.printStackTrace();
+                   }
+                   //test tranfer bytemap          
+/*                  String packageName = "com.android.settings";
                    String className = "com.android.settings.Settings";
-                   mIPCSocketImpl.testAndroidSendOneApp(packageName, className);
-                   ForwardTask task=new ForwardTask(readySocket,mApp,true);
+                   mIPCSocketImpl.testAndroidSendOneApp(packageName, className);// */
                    //for test end  
-                   pool.addTask(task);//*/
+                   ForwardTask task=new ForwardTask(readySocket,mApp,true);
+                   pool.addTask(task);
                }else{
-                   mIPCSocketImpl.androidReady();
+                   try{
+                       mIPCSocketImpl.androidReady();
+                   } catch (Exception e) {
+                       Log.v(TAG, ">>lilei>>serverThread 222 error:"+e.toString());
+                       e.printStackTrace();
+                   }
                }
                //add by lilei end
                while(true){
