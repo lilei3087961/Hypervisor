@@ -188,31 +188,11 @@ public class IPCService extends Service {
                //add by lilei begin
                mIPCSocketImpl = new IPCSocketImpl(mApp);
 
-               if(IPCSocketImpl.SINGLE_CONNECTION){
-                   //for test begin
-                   Socket  readySocket = null;
-                   try{
-                       readySocket = new Socket(IPCSocketImpl.SERVER_HOST_IP, 
-                               IPCSocketImpl.SERVER_HOST_PORT);
-                       mIPCSocketImpl.androidReady(readySocket);
-                   }catch (IOException e) {
-                       Log.v(TAG, ">>lilei>>serverThread 111 error:"+e.toString());
-                       e.printStackTrace();
-                   }
-                   //test tranfer bytemap          
-/*                  String packageName = "com.android.settings";
-                   String className = "com.android.settings.Settings";
-                   mIPCSocketImpl.testAndroidSendOneApp(packageName, className);// */
-                   //for test end  
-                   ForwardTask task=new ForwardTask(readySocket,mApp,true);
-                   pool.addTask(task);
-               }else{
-                   try{
-                       mIPCSocketImpl.androidReady();
-                   } catch (Exception e) {
-                       Log.v(TAG, ">>lilei>>serverThread 222 error:"+e.toString());
-                       e.printStackTrace();
-                   }
+               try{
+                   mIPCSocketImpl.androidReady();
+               } catch (Exception e) {
+                   Log.v(TAG, ">>lilei>>serverThread 222 error:"+e.toString());
+                   e.printStackTrace();
                }
                //add by lilei end
                while(true){

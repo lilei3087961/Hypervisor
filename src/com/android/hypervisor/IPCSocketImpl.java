@@ -62,10 +62,6 @@ public class IPCSocketImpl  extends  IPCImpl{
    private String       TAG = "IPCSocketImpl";  
    private Socket       mClientSocket;
    public static final boolean USE_JSON = true;
-   //add by lieli for single connection begin
-   public static final boolean SINGLE_CONNECTION = false;
-   private boolean singleConnectionMode = false;
-   //add by lieli for single connection end
    static final String KEY_MESSAGE_TYPE = "messageType";
    static final String KEY_PACKAGE_NAME = "packageName";
    static final String KEY_CLASS_NAME = "activityName";
@@ -617,21 +613,15 @@ public class IPCSocketImpl  extends  IPCImpl{
     */
    public void sendAndroidMessageToLinux(int configState,Socket...socket){
        Socket client = null;
-       singleConnectionMode = SINGLE_CONNECTION && socket!=null && socket.length ==1;
 	   	try{
-	   	    if(singleConnectionMode){
-	   	        client = socket[0];
-	   	    }else{
-	   	        client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
-	   	    }
+	   	    client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
             dos=new DataOutputStream(new BufferedOutputStream(client.getOutputStream()));
             if(USE_JSON){
             	try{
                     JSONObject jsonObj = new JSONObject();
                     jsonObj.put(KEY_MESSAGE_TYPE,configState);
                	 	Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(1) jsonObj.toString:"+jsonObj.toString()
-            			 +" toCharArray size:"+jsonObj.toString().toCharArray().length
-            			 +" singleConnectionMode:"+singleConnectionMode);
+            			 +" toCharArray size:"+jsonObj.toString().toCharArray().length);
                	 	dos.writeChars(jsonObj.toString());
             	}catch (JSONException e) {
         			// TODO Auto-generated catch block
@@ -648,8 +638,6 @@ public class IPCSocketImpl  extends  IPCImpl{
 	   	} catch (IOException e) {
             e.printStackTrace();
 	   	}finally{
-	   	    if(singleConnectionMode)  //singleConnectionMode do not close socket
-	   	        return;
 	        close(client);
 	    }
    }

@@ -51,7 +51,6 @@ public class ForwardTask extends Task{
           DataOutputStream dos = null;
           BufferedReader br = null;
           private boolean onWork=true;
-          private boolean mSingleConnection = false;
           Intent[] mIntents;
           Intent mIntent;
           ComponentName mComponentName;
@@ -80,11 +79,6 @@ public class ForwardTask extends Task{
                 }
                this.ipcImpl = new IPCSocketImpl(app);
                ipcImpl.setSocketImpl(socket, dis, dos); 
-        }
-        public ForwardTask(Socket socket, HypervisorApplication  app,boolean isSingleConnection){
-            this(socket,app);
-            mSingleConnection = isSingleConnection;
-
         }
         //add by lilei begin
         void testSocket(IPCSocketImpl ipcImpl){
@@ -121,29 +115,17 @@ public class ForwardTask extends Task{
         }
 
          public void run() {
-             if(mSingleConnection){//add by lilei
-                 while(onWork){
-                     try{
-                         receiveMsgSingle();
-                         Thread.sleep(500);  
-                     }catch(Exception e){
-                         e.printStackTrace();
-                         Log.i(TAG, ">>lilei>>ForwardTask.run 11 error:"+e.toString());
-                         break;
-                     }
-                }
-             }else{
-                if(onWork){
 
-                    try{
-                        receiveMsg();
-                    }catch(Exception e){
-                        e.printStackTrace();
-                        Log.i(TAG, ">>lilei>>ForwardTask.run 22 error trace:"+
-                        Log.getStackTraceString(e));
-                    }
-                }
+             if(onWork){
+                 try{
+                     receiveMsg();
+                 }catch(Exception e){
+                     e.printStackTrace();
+                     Log.i(TAG, ">>lilei>>ForwardTask.run 22 error trace:"+
+                     Log.getStackTraceString(e));
+                 }
              }
+             
              try{
                  if(socket!=null)
                          socket.close();
@@ -201,25 +183,6 @@ public class ForwardTask extends Task{
                 
         }
  		//add by lilei begin
-        public void receiveMsgSingle() throws IOException {
-            line = "";
-            JSONObject jsonObj = null;
-            int requestType = -1;
-            while((line = br.readLine()) != null){
-                try {
-                    Log.d(TAG, ">>lilei>>receiveMsgSingle line.trim:"+line.trim());
-                    if(line.trim().equals("adam")){  //for test
-                        Log.d(TAG, ">>lilei>>receiveMsgSingle adam send androidHeartBeat");
-                        ipcImpl.androidHeartBeat();
-                    }
-                    jsonObj = new JSONObject(line.toString().trim());
-                    doReceiveMsg(jsonObj);
-                }catch (JSONException e1) {
-                    Log.e(TAG, ">>lilei>>receiveMsgSingle() error:"+e1.toString());
-                }
-            }
-
-        }
         void doReceiveMsg(JSONObject jsonObj){
             int requestType = -1;
             try {
