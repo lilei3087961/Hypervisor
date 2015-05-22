@@ -189,13 +189,20 @@ public class IPCService extends Service {
                mIPCSocketImpl = new IPCSocketImpl(mApp);
 
                try{
+                   if(IPCSocketImpl.SINGLE_CONNECTION){
+                       Socket  readySocket = new Socket(IPCSocketImpl.SERVER_HOST_IP, 
+                       IPCSocketImpl.SERVER_HOST_PORT);
+                       mIPCSocketImpl.setClientInstance(readySocket);
+                       ForwardTask task=new ForwardTask(readySocket,mApp,true);
+                       pool.addTask(task);
+                   }
                    mIPCSocketImpl.androidReady();
                } catch (Exception e) {
                    Log.v(TAG, ">>lilei>>serverThread 222 error:"+e.toString());
                    e.printStackTrace();
                }
                //add by lilei end
-               while(true){
+               while(true){  //if SINGLE_CONNECTION is true,below code may not useful
                    Log.v(TAG, ">>lilei>>serverThread>>wait for connect...");
                    Socket socket= mServerSocket.accept();
                    Log.v(TAG, ">>lilei>>serverThread>>get a connection!~~~");

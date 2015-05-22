@@ -2,8 +2,8 @@ package com.android.hypervisor;
 
 public interface Config {
 
-    public static final short MESSAGE_ANDROID_READY            = 100; 
     public static final short MESSAGE_ANDROID_HEART_BEAT       = 101; 
+    public static final short MESSAGE_ANDROID_READY            = 100;
     public static final short MESSAGE_LINUX_MEMORYCLEAN        = 102; 
     public static final short MESSAGE_LINUX_SEND_KEY           = 103; 
     public static final short MESSAGE_LINUX_GETALL             = 104; 

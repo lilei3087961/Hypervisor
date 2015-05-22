@@ -61,7 +61,10 @@ public class IPCSocketImpl  extends  IPCImpl{
 
    private String       TAG = "IPCSocketImpl";  
    private Socket       mClientSocket;
+   static Socket       mClientInstance; //for no close Socket Instance
    public static final boolean USE_JSON = true;
+   //public static final boolean USE_TWO_WAY = false; //is two way long connect
+   public static final boolean SINGLE_CONNECTION = true;  //is single long connect
    static final String KEY_MESSAGE_TYPE = "messageType";
    static final String KEY_PACKAGE_NAME = "packageName";
    static final String KEY_CLASS_NAME = "activityName";
@@ -101,8 +104,22 @@ public class IPCSocketImpl  extends  IPCImpl{
       this.dis = dis; 
       this.dos = dos; 
    }
-
-
+   
+   Socket getClientInstance(){
+       if(mClientInstance == null){
+           Log.i(TAG, ">>lilei>>getClientInstance() mClientInstance == null error!! "
+                   + "please call  ");
+       }
+       return mClientInstance;
+   }
+   /***
+    * this method should be called only when andnroid ready 
+    * @param socket
+    * @return
+    */
+   void setClientInstance(Socket socket){
+       mClientInstance = socket;
+   }
    /**
     * get Linux OS ip and port
     */
@@ -478,17 +495,21 @@ public class IPCSocketImpl  extends  IPCImpl{
               +" packageName:"+packageName+" className:"+className
               +" title:"+title+" appIcon:"+appIcon+" bitmapSize:"+bitmapSize);
       try{
-        client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+          if(SINGLE_CONNECTION){
+              client = getClientInstance();
+          }else{
+              client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+          }
         dos=new DataOutputStream(new BufferedOutputStream(client.getOutputStream()));
         //dos.write(bitmapbyte);
         //dos.writeChars(bitmapbyte.toString());
         byte[] byteTest = new byte[]{'a','b'};
         //String str = "李";
         //dos.writeChars(byteTest.toString());
-        String base64Str = Base64.encodeToString(byteTest,0,byteTest.length,Base64.DEFAULT);
+        String base64Str = Base64.encodeToString(byteTest,0,byteTest.length,Base64.NO_WRAP);
         Log.i(TAG,">>lilei>>~~testAndroidSendOneApp() byteTest.base64:"
                 +base64Str+" bitmapbyte.length:"+byteTest.length);
-        dos.writeChars(base64Str);
+        dos.writeChars("ab");
         dos.flush();
       }catch (IOException e) {
           Log.i(TAG,">>lilei>>testAndroidSendOneApp() error:"+e.toString());
@@ -614,7 +635,11 @@ public class IPCSocketImpl  extends  IPCImpl{
    public void sendAndroidMessageToLinux(int configState,Socket...socket){
        Socket client = null;
 	   	try{
-	   	    client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+	   	    if(SINGLE_CONNECTION){
+	   	        client = getClientInstance();
+	   	    }else{
+	   	        client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+	   	    }
             dos=new DataOutputStream(new BufferedOutputStream(client.getOutputStream()));
             if(USE_JSON){
             	try{
@@ -636,6 +661,7 @@ public class IPCSocketImpl  extends  IPCImpl{
             }
             dos.flush();
 	   	} catch (IOException e) {
+	   	    Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(1) error:"+e.toString());
             e.printStackTrace();
 	   	}finally{
 	        close(client);
@@ -651,7 +677,11 @@ public class IPCSocketImpl  extends  IPCImpl{
    public void sendAndroidMessageToLinux(int configState,String packageName){
        Socket client = null;
        try{
-         client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+           if(SINGLE_CONNECTION){
+               client = getClientInstance();
+           }else{
+               client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+           }
          dos=new DataOutputStream(new BufferedOutputStream(client.getOutputStream()));
          if(USE_JSON){
         	 try{
@@ -705,7 +735,11 @@ public class IPCSocketImpl  extends  IPCImpl{
        short classLength = (short)(classChars.length * 2);
        Socket client = null;
        try{
-         client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+           if(SINGLE_CONNECTION){
+               client = getClientInstance();
+           }else{
+               client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+           }
          dos=new DataOutputStream(new BufferedOutputStream(client.getOutputStream()));
          if(USE_JSON){
         	 try{
@@ -757,7 +791,8 @@ public class IPCSocketImpl  extends  IPCImpl{
 	       return;
 	   }
 	   Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(5) appIcon!=null?"
-			   +(appIcon != null ? "true":"false")+" configState:"+configState);
+			   +(appIcon != null ? "true":"false")+" configState:"+configState
+			   +" title byte length:"+title.getBytes().length);
        ByteArrayOutputStream baos = new ByteArrayOutputStream();
        appIcon.compress(Bitmap.CompressFormat.PNG, 100, baos);
        short bitmapSize = (short)baos.size();
@@ -773,18 +808,36 @@ public class IPCSocketImpl  extends  IPCImpl{
        short titlelength  = (short)(titlechar.length * 2);
        Socket client = null;
        try{
-         client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+           if(SINGLE_CONNECTION){
+               client = getClientInstance();
+           }else{
+               client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+           }
          dos=new DataOutputStream(new BufferedOutputStream(client.getOutputStream()));
          if(USE_JSON){
         	 try{
+
             	 JSONObject jsonObj = new JSONObject();
             	 jsonObj.put(KEY_MESSAGE_TYPE,configState);
             	 jsonObj.put(KEY_PACKAGE_NAME,packageName);
             	 jsonObj.put(KEY_CLASS_NAME,className);
-            	 jsonObj.put(KEY_CLASS_TITLE,title);
+            	 jsonObj.put(KEY_CLASS_TITLE,Base64.encodeToString( 
+            	         title.getBytes(),0,title.getBytes().length,Base64.NO_WRAP));
+            	 //for test begin
+            	 Log.i(TAG,">>lilei>>Base64 title is:"+Base64.encodeToString( 
+                         title.getBytes(),0,title.getBytes().length,Base64.NO_WRAP)
+                         +" Base64 title length is:"+Base64.encodeToString( 
+                         title.getBytes(),0,title.getBytes().length,Base64.NO_WRAP).length());
+            	 for(int i=0;i<title.getBytes().length;i++){
+            	     Log.i(TAG,">>lilei>>title byte["+i+"]:"+title.getBytes()[i]);
+            	 }
+            	 //for test end
             	 jsonObj.put(KEY_BYTEMAP,Base64.encodeToString(
-            			 bitmapbyte,0,bitmapbyte.length,Base64.DEFAULT));
-
+            			 bitmapbyte,0,bitmapbyte.length,Base64.NO_WRAP));
+            	 Log.i(TAG,">>lilei>>byteMap Base64.encode length is:"+
+            	Base64.encodeToString(bitmapbyte,0,bitmapbyte.length,Base64.NO_WRAP).length()
+            	+" bitmapbyte.length:"+bitmapbyte.length);
+            	 
             	 Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(5) toCharArray size:"+
             	 jsonObj.toString().toCharArray().length+" timeNow"+ForwardTask.getTimeNow());
             			 //+" jsonObj.toString:"+jsonObj.toString());
@@ -863,7 +916,11 @@ public class IPCSocketImpl  extends  IPCImpl{
 	   }
 	   Socket client = null;
 	   try{
-		   	 client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+               if(SINGLE_CONNECTION){
+                   client = getClientInstance();
+               }else{
+                   client = new Socket(SERVER_HOST_IP, SERVER_HOST_PORT);
+               }
 	         dos=new DataOutputStream(new BufferedOutputStream(client.getOutputStream()));
 
 	         Log.i(TAG,">>lilei>>send:send all app to linux,>>2>>  "
@@ -948,6 +1005,10 @@ public class IPCSocketImpl  extends  IPCImpl{
   public void close(Socket socket){
   
    try{
+       if(SINGLE_CONNECTION){
+           Log.i(TAG,">>lilei>>no close socket !!!!!");
+           return;
+       }
        Log.i(TAG,">>lilei>>close socket !!!!!");
        if(dis!=null)
            dis.close();

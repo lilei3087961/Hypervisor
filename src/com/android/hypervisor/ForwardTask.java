@@ -56,8 +56,8 @@ public class ForwardTask extends Task{
           ComponentName mComponentName;
           String line = "";
           StringBuilder sbLine;
-
-          final ArrayList<String> mArrLines = new  ArrayList<String>();
+          private boolean mSingleConnection = false;
+          //final ArrayList<String> mArrLines = new  ArrayList<String>();
           public final HypervisorApplication mApp;
           public IPCSocketImpl  ipcImpl; 
           
@@ -78,9 +78,14 @@ public class ForwardTask extends Task{
                         e.printStackTrace();
                 }
                this.ipcImpl = new IPCSocketImpl(app);
-               ipcImpl.setSocketImpl(socket, dis, dos); 
+               //ipcImpl.setSocketImpl(socket, dis, dos);  // dis may be close
         }
         //add by lilei begin
+        public ForwardTask(Socket socket, HypervisorApplication  app,boolean isSingleConnection){
+              this(socket,app);
+              mSingleConnection = isSingleConnection;
+              
+         }
         void testSocket(IPCSocketImpl ipcImpl){
         	Log.i(TAG, ">>lilei>>begin test socket");
         	ipcImpl.androidReady();
@@ -115,18 +120,32 @@ public class ForwardTask extends Task{
         }
 
          public void run() {
-
-             if(onWork){
-                 try{
-                     receiveMsg();
-                 }catch(Exception e){
-                     e.printStackTrace();
-                     Log.i(TAG, ">>lilei>>ForwardTask.run 22 error trace:"+
-                     Log.getStackTraceString(e));
+             Log.w(TAG, ">>lilei>>ForwardTask.run 000 mSingleConnection:"+mSingleConnection);
+             if(mSingleConnection){
+                 while(onWork){
+                     try{
+                         receiveMsgSingle();
+                         Thread.sleep(500);
+                     }catch(Exception e){
+                         e.printStackTrace();
+                         Log.i(TAG, ">>lilei>>ForwardTask.run 111 error trace:"+
+                         Log.getStackTraceString(e));
+                         break;
+                     }
+                 }
+             }else{
+                 if(onWork){
+                     try{
+                         receiveMsg();
+                     }catch(Exception e){
+                         e.printStackTrace();
+                         Log.i(TAG, ">>lilei>>ForwardTask.run 222 error trace:"+
+                         Log.getStackTraceString(e));
+                     }
                  }
              }
-             
              try{
+                 Log.w(TAG, ">>lilei>>~~run socket.close()");
                  if(socket!=null)
                          socket.close();
                    if(dis!=null)
@@ -141,51 +160,59 @@ public class ForwardTask extends Task{
              }
         }
 
-
+        public void receiveMsgSingle() throws IOException {
+            char[] buffer = new char[1024];
+            int len;
+            //Log.w(TAG, ">>lilei>>~~before read(buffer)");
+            while((len = br.read(buffer)) != -1){
+                Log.w(TAG, ">>lilei>>~~get a new buffer! len is:"+len);
+                sbLine = new StringBuilder();
+                for(int i=0;i<len;i++){
+                   //Log.w(TAG, ">>lilei>>~~receiveMsg buffer["+i+"]:"+String.valueOf(buffer[i]).trim());
+                   sbLine.append(String.valueOf(buffer[i]).trim());
+                }
+                Log.w(TAG, ">>lilei>>~~test lilei buffer is:"+sbLine.toString());
+                //ipcImpl.testAndroidSendOneApp("a", "b");//for test
+                doReceiveMsg(sbLine.toString().trim());
+            }
+                   
+        }
         public void receiveMsg() throws IOException {
-                //int requestType = dis.readInt();
-                JSONObject jsonObj = null;
-	 			mArrLines.clear();
-	 			if(IPCSocketImpl.USE_JSON){
-	 			   Log.w(TAG, ">>lilei>>~~receiveMsg 1111");
-	 			
-	 			  //阻塞方法
-	 			  while((line = br.readLine()) != null){
-	 					Log.d(TAG, ">>lilei>>json~~ receiveMsg line.trim:"+line.trim()
-	 					        +" timeNow:"+getTimeNow());
-	 					mArrLines.add(line.trim());
-	 			  }
-	 		      /*       char[] buffer = new char[1024];
-	                sbLine = new StringBuilder();
-	 			    int len;
-	 			    //非阻塞方法
-	 			    while((len = br.read(buffer)) != -1){
-	 			        for(int i=0;i<len;i++){
-	 			           Log.w(TAG, ">>lilei>>~~receiveMsg buffer["+i+"]:"+String.valueOf(buffer[i]).trim());
-	 			           sbLine.append(String.valueOf(buffer[i]).trim());
-	 			        }
-	 			    } //*/
-	 			    
- 	 				Log.w(TAG, ">>lilei>>receiveMsg 222 ");
-	 				if(mArrLines.size() != 1){
-	 					Log.w(TAG, ">>lilei>>receiveMsg>> error mArrLines.size():"+mArrLines.size());
-	 					return;
-	 				}else{
-	 					try {
-	 						jsonObj = new JSONObject(mArrLines.get(0));
-	 						Log.e(TAG, ">>lilei>>receiveMsg() 333");
-	 						doReceiveMsg(jsonObj);
-	 					}catch (JSONException e1) {
-	 						Log.e(TAG, ">>lilei>>receiveMsg() error:"+e1.toString());
-	 					}
-	 				}
-	 			}
-                
+
+ 			Log.w(TAG, ">>lilei>>~~receiveMsg 1111");
+ 			
+ 			//if(!IPCSocketImpl.USE_TWO_WAY){
+     			while((line = br.readLine()) != null){
+     					Log.d(TAG, ">>lilei>>json~~ receiveMsg line.trim:"+line.trim()
+     					        +" timeNow:"+getTimeNow());
+     	                doReceiveMsg(line.trim());
+     			}
+                Log.w(TAG, ">>lilei>>receiveMsg 222 ");
+
+ /*			}else{  //for 长连接,若client端发送完消息不关闭socket,则br.read阻塞状态
+    	        char[] buffer = new char[1024];
+    		    int len;
+    		    Log.w(TAG, ">>lilei>>~~before read(buffer)");
+    		    while((len = br.read(buffer)) != -1){
+    		        Log.w(TAG, ">>lilei>>~~get a new buffer! len is:"+len);
+                    sbLine = new StringBuilder();
+    		        for(int i=0;i<len;i++){
+    		           //Log.w(TAG, ">>lilei>>~~receiveMsg buffer["+i+"]:"+String.valueOf(buffer[i]).trim());
+    		           sbLine.append(String.valueOf(buffer[i]).trim());
+    		        }
+    		        Log.w(TAG, ">>lilei>>~~test lilei buffer is:"+sbLine.toString());
+    		        //ipcImpl.testAndroidSendOneApp("a", "b");//for test
+                    doReceiveMsg(sbLine.toString().trim());
+    		    }
+    	 			    
+ 			}  //*/ 
         }
  		//add by lilei begin
-        void doReceiveMsg(JSONObject jsonObj){
+        void doReceiveMsg(String message){
+            JSONObject jsonObj = null;
             int requestType = -1;
             try {
+                jsonObj = new JSONObject(message);
                 requestType = jsonObj.getInt(IPCSocketImpl.KEY_MESSAGE_TYPE);
             }catch (JSONException e) {
                 Log.e(TAG, ">>lilei>>doReceiveMsg error:"+e.toString());
