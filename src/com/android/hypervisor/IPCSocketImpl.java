@@ -107,18 +107,9 @@ public class IPCSocketImpl  extends  IPCImpl{
    
    Socket getClientInstance(){
        if(mClientInstance == null){
-           Log.i(TAG, ">>lilei>>getClientInstance() mClientInstance == null error!! "
-                   + "please call  ");
+           mClientInstance = IPCService.getReadySocket();
        }
        return mClientInstance;
-   }
-   /***
-    * this method should be called only when andnroid ready 
-    * @param socket
-    * @return
-    */
-   void setClientInstance(Socket socket){
-       mClientInstance = socket;
    }
    /**
     * get Linux OS ip and port
@@ -941,8 +932,8 @@ public class IPCSocketImpl  extends  IPCImpl{
         	        	 allApps.put(objApp);
     	        	 }
     	        	 jsonObj.put(KEY_ALL_APPS,allApps);
-                	 Log.i(TAG,">>lilei>> jsonObj.toString:"+jsonObj.toString()
-                			 +" toCharArray size:"+jsonObj.toString().toCharArray().length);
+                	 Log.i(TAG,">>lilei>> jsonObj.toString:"+jsonObj.toString());
+                	 Log.i(TAG,">>lilei>> jsonObj.toCharArray size:"+jsonObj.toString().toCharArray().length);
     	        	 dos.writeChars(jsonObj.toString());
 	        	 }catch (JSONException e) {
 	     			// TODO Auto-generated catch block
@@ -1020,7 +1011,7 @@ public class IPCSocketImpl  extends  IPCImpl{
        dos=null;
        socket = null;
       }catch (IOException e) {
-          Log.i(TAG, ">>lilei>>close error e:"+e.toString());
+          Log.e(TAG, ">>lilei>>close error e:"+e.toString());
       }
 
 
