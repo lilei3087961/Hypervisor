@@ -14,7 +14,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.lang.reflect.Method;
 import java.net.Socket;
+import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
+import java.nio.charset.Charset;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -57,7 +59,6 @@ public class ForwardTask extends Task{
           String line = "";
           StringBuilder sbLine;
           private boolean mSingleConnection = false;
-          //final ArrayList<String> mArrLines = new  ArrayList<String>();
           public final HypervisorApplication mApp;
           public IPCSocketImpl  ipcImpl; 
           
@@ -143,69 +144,99 @@ public class ForwardTask extends Task{
                          Log.getStackTraceString(e));
                      }
                  }
+                 try{
+                     Log.w(TAG, ">>lilei>>~~run socket.close()");
+                     if(socket!=null)
+                             socket.close();
+                       if(dis!=null)
+                              dis.close();
+                       if(dos!=null)
+                              dos.close();
+                     socket=null;
+                     dis=null;
+                     dos=null;
+                 }catch (IOException e) {
+                     Log.i(TAG, ">>lilei>>ForwardTask.run 33 error:"+e.toString());
+                 }
              }
-             try{
-                 Log.w(TAG, ">>lilei>>~~run socket.close()");
-                 if(socket!=null)
-                         socket.close();
-                   if(dis!=null)
-                          dis.close();
-                   if(dos!=null)
-                          dos.close();
-                 socket=null;
-                 dis=null;
-                 dos=null;
-             }catch (IOException e) {
-                 Log.i(TAG, ">>lilei>>ForwardTask.run 33 error:"+e.toString());
-             }
+
         }
 
         public void receiveMsgSingle() throws IOException {
-            char[] buffer = new char[1024];
-            int len;
+            //char[] buffer = new char[1024];
+            byte[] buf = new byte[1024];
+            byte[] bufMsg = null;
+            int index = -1;
+            boolean readBegin = false;
+            boolean readEnd = false;
+            int len = -1;
+            
+           while((len = dis.read(buf)) != -1){
+                Log.w(TAG, ">>lilei>>~~get a new buffer! len is:"+len
+                        +" buf.length:"+buf.length);
+                if(!readBegin)  //if not find Start identifier init length
+                    index = -1;
+                for(int i=0;i<len;i++){
+                    //int ascii = (int)buf[i];
+                    if(buf[i] == IPCSocketImpl.READ_BEGIN){
+                        Log.w(TAG, ">>lilei>>###~~receiveMsgSingle get 0xff index i is:"+i
+                                +" byte is:"+buf[i]);
+                        readBegin = true;
+                        readEnd = false;
+                        bufMsg = new byte[1024];
+
+                    }else if(buf[i] == IPCSocketImpl.READ_END){
+                        Log.w(TAG, ">>lilei>>~~receiveMsgSingle get 0xfe index i is:"+i
+                                +" byte is:"+buf[i]);
+                        readBegin = false;
+                        readEnd = true;
+                    }
+                    //Log.w(TAG, ">>lilei>>~~receiveMsgSingle (int)buf["+i+"]="+(int)buf[i]);
+                    if(readBegin && buf[i] != IPCSocketImpl.READ_BEGIN){
+                        //Log.w(TAG, ">>lilei>>~~receiveMsgSingle index:"+index);
+                        bufMsg[++index] = buf[i];
+                    }else if(readEnd){  //
+                        int length = index + 1;
+                        index = -1;     
+                        //char[] arr = bytesToChars(bufMsg,length);
+                        byte[] buftmp = new byte[length];
+                        System.arraycopy(bufMsg, 0, buftmp, 0, length);
+                        String msg = new String(buftmp,"UTF-8");
+                        Log.w(TAG, ">>lilei>>111~~receiveMsgSingle buffer string is:"+msg
+                               +" byte length:"+length);
+                        doReceiveMsg(msg);
+                    }
+                }
+
+            } //*/
             //Log.w(TAG, ">>lilei>>~~before read(buffer)");
-            while((len = br.read(buffer)) != -1){
+ /*           while((len = br.read(buffer)) != -1){
                 Log.w(TAG, ">>lilei>>~~get a new buffer! len is:"+len);
                 sbLine = new StringBuilder();
                 for(int i=0;i<len;i++){
-                   //Log.w(TAG, ">>lilei>>~~receiveMsg buffer["+i+"]:"+String.valueOf(buffer[i]).trim());
+                    if((int)buffer[i] ==-1){
+                        Log.w(TAG, ">>lilei>>~~receiveMsgSingle get 0xff");
+                    }else if((int)buffer[i] == -2){
+                        Log.w(TAG, ">>lilei>>~~receiveMsgSingle get 0xfe");
+                    }
+                   Log.w(TAG, ">>lilei>>~~receiveMsgSingle buffer["+i+"]:"+String.valueOf(buffer[i]).trim()
+                           +" >>ascii is:"+(int)buffer[i]);
                    sbLine.append(String.valueOf(buffer[i]).trim());
                 }
-                Log.w(TAG, ">>lilei>>~~test lilei buffer is:"+sbLine.toString());
+                Log.w(TAG, ">>lilei>>~~receiveMsgSingle buffer string is:"+sbLine.toString());
                 //ipcImpl.testAndroidSendOneApp("a", "b");//for test
                 doReceiveMsg(sbLine.toString().trim());
-            }
+            } //*/
                    
         }
         public void receiveMsg() throws IOException {
-
  			Log.w(TAG, ">>lilei>>~~receiveMsg 1111");
- 			
- 			//if(!IPCSocketImpl.USE_TWO_WAY){
-     			while((line = br.readLine()) != null){
-     					Log.d(TAG, ">>lilei>>json~~ receiveMsg line.trim:"+line.trim()
-     					        +" timeNow:"+getTimeNow());
-     	                doReceiveMsg(line.trim());
-     			}
-                Log.w(TAG, ">>lilei>>receiveMsg 222 ");
-
- /*			}else{  //for 长连接,若client端发送完消息不关闭socket,则br.read阻塞状态
-    	        char[] buffer = new char[1024];
-    		    int len;
-    		    Log.w(TAG, ">>lilei>>~~before read(buffer)");
-    		    while((len = br.read(buffer)) != -1){
-    		        Log.w(TAG, ">>lilei>>~~get a new buffer! len is:"+len);
-                    sbLine = new StringBuilder();
-    		        for(int i=0;i<len;i++){
-    		           //Log.w(TAG, ">>lilei>>~~receiveMsg buffer["+i+"]:"+String.valueOf(buffer[i]).trim());
-    		           sbLine.append(String.valueOf(buffer[i]).trim());
-    		        }
-    		        Log.w(TAG, ">>lilei>>~~test lilei buffer is:"+sbLine.toString());
-    		        //ipcImpl.testAndroidSendOneApp("a", "b");//for test
-                    doReceiveMsg(sbLine.toString().trim());
-    		    }
-    	 			    
- 			}  //*/ 
+ 			while((line = br.readLine()) != null){
+ 					Log.d(TAG, ">>lilei>>json~~ receiveMsg line.trim:"+line.trim()
+ 					        +" timeNow:"+getTimeNow());
+ 	                doReceiveMsg(line.trim());
+ 			}
+            Log.w(TAG, ">>lilei>>receiveMsg 222 ");
         }
  		//add by lilei begin
         void doReceiveMsg(String message){
@@ -223,19 +254,19 @@ public class ForwardTask extends Task{
                     ipcImpl.androidAppBasicInfo();
                         break;
                 case Config.MESSAGE_LINUX_GETONEAPP:
-                    linuxGetOneApp(jsonObj,null);
+                    linuxGetOneApp(jsonObj);
                       //when receive this message, we should send one app information...
                         break;
                 case Config.MESSAGE_LINUX_APP_START:
-                    linuxAppStart(jsonObj,null);
+                    linuxAppStart(jsonObj);
                         break;
                 case Config.MESSAGE_LINUX_SET_TIME:
                     //setDateTime(2014,1,1,1,1,1); //for test
-                    linuxSetTime(jsonObj,null);
+                    linuxSetTime(jsonObj);
                         break;
                 case Config.MESSAGE_LINUX_SET_LANGUAGE:
                     //setLanguage(Locale.ENGLISH);  //for test
-                    linuxSetLanguage(jsonObj,null);
+                    linuxSetLanguage(jsonObj);
                         break;
                 case Config.MESSAGE_ANDROID_FACTORY_RESET:
                     FactoryReset(false);
@@ -260,78 +291,43 @@ public class ForwardTask extends Task{
 
             }
         }
-        void linuxGetOneApp(JSONObject jsonObj,ArrayList<String> arrLines){
-        	if(IPCSocketImpl.USE_JSON){
-        		try{
-            		String packageName = jsonObj.getString(IPCSocketImpl.KEY_PACKAGE_NAME);
-            		String className = jsonObj.getString(IPCSocketImpl.KEY_CLASS_NAME);
-            		ipcImpl.androidSendOneApp(packageName,className);
-            		//ipcImpl.testAndroidSendOneApp(packageName, className);//test bytemap
-        		}catch (JSONException e1) {
-						Log.e(TAG, ">>lilei>>linuxGetOneApp() error:"+e1.toString());
-			    }
-        	}else{           		
-                if(arrLines.size() == 4){
-            		ipcImpl.androidSendOneApp(arrLines.get(2),arrLines.get(3));
-            	}else{
-            		Log.w(TAG, ">>lilei>>receiveMsg>>GETONEAPP error size:"+arrLines.size());
-            	}
-        	}
+        void linuxGetOneApp(JSONObject jsonObj){
+    		try{
+        		String packageName = jsonObj.getString(IPCSocketImpl.KEY_PACKAGE_NAME);
+        		String className = jsonObj.getString(IPCSocketImpl.KEY_CLASS_NAME);
+        		ipcImpl.androidSendOneApp(packageName,className);
+        		//ipcImpl.testAndroidSendOneApp(packageName, className);//test bytemap
+    		}catch (JSONException e1) {
+					Log.e(TAG, ">>lilei>>linuxGetOneApp() error:"+e1.toString());
+		    }
         }
-        void linuxAppStart(JSONObject jsonObj,ArrayList<String> arrLines){
-        	if(IPCSocketImpl.USE_JSON){
-        		try{
-            		String packageName = jsonObj.getString(IPCSocketImpl.KEY_PACKAGE_NAME);
-            		String className = jsonObj.getString(IPCSocketImpl.KEY_CLASS_NAME);
-            		startActivity(packageName,className);	
-        		}catch (JSONException e1) {
-					Log.e(TAG, ">>lilei>>linuxAppStart() error:"+e1.toString());
-			    }
-        	}else{
-            	if(arrLines.size()==4){
-            		startActivity(arrLines.get(2),arrLines.get(3));
-            	}else{
-            		Log.d(TAG, ">>lilei>>receiveMsg>>APP_START error size:"+arrLines.size());
-            	}
-        	}
+        void linuxAppStart(JSONObject jsonObj){
+    		try{
+        		String packageName = jsonObj.getString(IPCSocketImpl.KEY_PACKAGE_NAME);
+        		String className = jsonObj.getString(IPCSocketImpl.KEY_CLASS_NAME);
+        		startActivity(packageName,className);	
+    		}catch (JSONException e1) {
+				Log.e(TAG, ">>lilei>>linuxAppStart() error:"+e1.toString());
+		    }
+
         }
-        void linuxSetTime(JSONObject jsonObj,ArrayList<String> arrLines){
-        	if(IPCSocketImpl.USE_JSON){
-        		try{
-            		long timeInMills = jsonObj.getLong(IPCSocketImpl.KEY_TIME_IN_MILLS);
-            		setDateTime(timeInMills);
-        		}catch (JSONException e1) {
-					Log.e(TAG, ">>lilei>>linuxSetTime() error:"+e1.toString());
-			    }
-        	}else{
-            	if(arrLines.size()==1){
-            		long millis = Long.parseLong(arrLines.get(0));
-            		setDateTime(millis);
-            	}else{
-            		Log.d(TAG, ">>lilei>>receiveMsg>>SET_TIME error size:"+arrLines.size());
-            	}
-        	}
+        void linuxSetTime(JSONObject jsonObj){
+    		try{
+        		long timeInMills = jsonObj.getLong(IPCSocketImpl.KEY_TIME_IN_MILLS);
+        		setDateTime(timeInMills);
+    		}catch (JSONException e1) {
+				Log.e(TAG, ">>lilei>>linuxSetTime() error:"+e1.toString());
+		    }
         }
-        void linuxSetLanguage(JSONObject jsonObj,ArrayList<String> arrLines){
-        	if(IPCSocketImpl.USE_JSON){
-        		try{
-            		String language = jsonObj.getString(IPCSocketImpl.KEY_LANGUAGE);
-            		String area = jsonObj.getString(IPCSocketImpl.KEY_AREA);
-            		setLanguage(language,area);
-        		}catch (JSONException e1) {
-					Log.e(TAG, ">>lilei>>linuxSetLanguage() error:"+e1.toString());
-			    }
-        	}else{
-            	if(arrLines.size()==1){
-            		if(arrLines.get(0).length() == 5){
-            			setLanguage(arrLines.get(0));
-            		}else{
-            			Log.d(TAG, ">>lilei>>receiveMsg>>SET_LANGUAGE error str:"+arrLines.get(0));
-            		}
-            	}else{
-            		Log.d(TAG, ">>lilei>>receiveMsg>>SET_LANGUAGE error size:"+arrLines.size());
-            	}
-        	}
+        void linuxSetLanguage(JSONObject jsonObj){
+    		try{
+        		String language = jsonObj.getString(IPCSocketImpl.KEY_LANGUAGE);
+        		String area = jsonObj.getString(IPCSocketImpl.KEY_AREA);
+        		setLanguage(language,area);
+    		}catch (JSONException e1) {
+				Log.e(TAG, ">>lilei>>linuxSetLanguage() error:"+e1.toString());
+		    }
+
         }
         
         ///utils
@@ -458,6 +454,28 @@ public class ForwardTask extends Task{
             	mApp.sendBroadcast(new Intent("android.intent.action.MASTER_CLEAR"));
                 // Intent handling is asynchronous -- assume it will happen soon.
             }
+        }
+        /***
+         * convert Specified length of bytes to char array
+         * @param bytes
+         * @param length
+         * @return
+         */
+        private char[] bytesToChars(byte[] bytes,int length) {
+            byte[] buftmp = new byte[length];
+            System.arraycopy(bytes, 0, buftmp, 0, length);
+            for(int i=0;i<buftmp.length;i++){
+                Log.i(TAG, ">>lilei>>buftmp["+i+"]:"+buftmp[i]+" ascii is:"+(int)buftmp[i]);
+            }
+            Charset cs = Charset.forName ("UTF-8");
+            ByteBuffer bb = ByteBuffer.allocate (buftmp.length);
+            bb.put(buftmp);
+            bb.flip();
+            CharBuffer cb = cs.decode(bb);
+            for(int i=0;i<cb.array().length;i++){
+                Log.i(TAG, ">>lilei>>arr["+i+"]:"+cb.array()[i]+" ascii is:"+(int)cb.array()[i]);
+            }
+            return cb.array(); //cb.array() char array
         }
         //add by lilei end
 

@@ -45,6 +45,7 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.io.BufferedInputStream;
@@ -57,13 +58,16 @@ import java.net.UnknownHostException;
  */
 public class IPCService extends Service {
 
-    private final String TAG = "IPCService"; 
+    private static final String TAG = "IPCService"; 
 
     private ServerThread mServerThread = null;
 
     private static boolean mServerRunning = false;
     private static boolean mServiceStarted = false; 
     IPCSocketImpl  mIPCSocketImpl;
+    private static Socket  mReadySocket;
+    static int try_count = 0;
+    static final int TRY_LIMIT = 10;
     public HypervisorApplication mApp; 
     // Used for setting FLAG_ACTIVITY_NO_USER_ACTION when
     // creating an intent.
@@ -170,9 +174,34 @@ public class IPCService extends Service {
     	//ipcImpl.androidUpdateOne(packageName, className);
     	//ipcImpl.androidSendOneApp(packageName, className);
     	//ipcImpl.androidRemoveOne("a");
-    }
-      
-    //add by lilei end
+   }
+   static Socket getReadySocket(){  //
+       if(mReadySocket == null){
+           Log.e(TAG, ">>lilei>>error! mReadySocket == null,please set first!!");
+       }
+       return mReadySocket;
+   }
+   void setReadySocket(){//should be set only once before send androidReady message
+       try{
+           mReadySocket = new Socket(IPCSocketImpl.SERVER_HOST_IP, 
+               IPCSocketImpl.SERVER_HOST_PORT);
+       }catch(ConnectException e){
+           Log.e(TAG, ">>lilei>>setReadySocket() error1:"+e.toString());
+           try{
+               Thread.sleep(500);
+           }catch(InterruptedException e1){
+               Log.e(TAG, ">>lilei>>setReadySocket() error2:"+e1.toString());
+           }
+           if(try_count<TRY_LIMIT){
+               Log.i(TAG, ">>lilei>>~~~~recall setReadySocket() times is:"+try_count);
+               try_count++;
+               setReadySocket();
+           }
+       }catch(Exception e){
+           Log.e(TAG, ">>lilei>>setReadySocket() error3:"+e.toString());
+       }
+   }
+   //add by lilei end
    private class ServerThread extends Thread {
 
         ServerSocket mServerSocket;
@@ -184,21 +213,18 @@ public class IPCService extends Service {
     
                ThreadPool pool=ThreadPool.getInstance();
                Log.v("IPCService", ">>>>chenrui>>>>serverThread>>>run");
-               //testSocket(); //for test by lilei
                //add by lilei begin
                mIPCSocketImpl = new IPCSocketImpl(mApp);
 
                try{
                    if(IPCSocketImpl.SINGLE_CONNECTION){
-                       Socket  readySocket = new Socket(IPCSocketImpl.SERVER_HOST_IP, 
-                       IPCSocketImpl.SERVER_HOST_PORT);
-                       mIPCSocketImpl.setClientInstance(readySocket);
-                       ForwardTask task=new ForwardTask(readySocket,mApp,true);
+                       setReadySocket(); //init mReadySocket
+                       ForwardTask task=new ForwardTask(mReadySocket,mApp,true);
                        pool.addTask(task);
                    }
                    mIPCSocketImpl.androidReady();
                } catch (Exception e) {
-                   Log.v(TAG, ">>lilei>>serverThread 222 error:"+e.toString());
+                   Log.e(TAG, ">>lilei>>serverThread 111 error:"+e.toString());
                    e.printStackTrace();
                }
                //add by lilei end
@@ -210,7 +236,7 @@ public class IPCService extends Service {
                    pool.addTask(task);
                }
            } catch (IOException e) {
-               Log.v(TAG, ">>lilei>>serverThread error:"+e.toString());
+               Log.e(TAG, ">>lilei>>serverThread error:"+e.toString());
         	   e.printStackTrace();
            }
         }
