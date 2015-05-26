@@ -177,6 +177,7 @@ public class ForwardTask extends Task{
                 if(!readBegin)  //if not find Start identifier init length
                     index = -1;
                 for(int i=0;i<len;i++){
+
                     //int ascii = (int)buf[i];
                     if(buf[i] == IPCSocketImpl.READ_BEGIN){
                         Log.w(TAG, ">>lilei>>###~~receiveMsgSingle get 0xff index i is:"+i
@@ -184,7 +185,6 @@ public class ForwardTask extends Task{
                         readBegin = true;
                         readEnd = false;
                         bufMsg = new byte[1024];
-
                     }else if(buf[i] == IPCSocketImpl.READ_END){
                         Log.w(TAG, ">>lilei>>~~receiveMsgSingle get 0xfe index i is:"+i
                                 +" byte is:"+buf[i]);
@@ -192,6 +192,7 @@ public class ForwardTask extends Task{
                         readEnd = true;
                     }
                     //Log.w(TAG, ">>lilei>>~~receiveMsgSingle (int)buf["+i+"]="+(int)buf[i]);
+
                     if(readBegin && buf[i] != IPCSocketImpl.READ_BEGIN){
                         //Log.w(TAG, ">>lilei>>~~receiveMsgSingle index:"+index);
                         bufMsg[++index] = buf[i];

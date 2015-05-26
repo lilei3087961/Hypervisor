@@ -883,10 +883,10 @@ public class IPCSocketImpl  extends  IPCImpl{
 
 	         Log.i(TAG,">>lilei>>send:send all app to linux,>>2>>  "
 		         		+ "listName size:"+listName.size());
+
         	 try{
         		 JSONObject jsonObj = new JSONObject();
         		 JSONObject objApp;
-        	 
 	        	 jsonObj.put(KEY_MESSAGE_TYPE,Config.MESSAGE_ANDROID_APPBASICINFO);
 	        	 JSONArray allApps = new JSONArray();
 	        	 for(int i=0;i<listName.size();i++){
