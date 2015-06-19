@@ -31,6 +31,8 @@ import org.json.JSONObject;
 import com.android.internal.os.storage.ExternalStorageFormatter;
 
 import android.media.AudioSystem;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.SystemClock;
 import android.util.Log;
 import android.app.ActivityManager;
@@ -61,7 +63,6 @@ public class ForwardTask extends Task{
           private boolean mSingleConnection = false;
           public final HypervisorApplication mApp;
           public IPCSocketImpl  ipcImpl; 
-          
 
           public ForwardTask(Socket socket, HypervisorApplication  app){
 
@@ -123,12 +124,15 @@ public class ForwardTask extends Task{
          public void run() {
              Log.w(TAG, ">>lilei>>ForwardTask.run 000 mSingleConnection:"+mSingleConnection);
              if(mSingleConnection){
+                sendAndroidHeartBeat();
+                Log.w(TAG, ">>lilei>>ForwardTask.run 111");
                  while(onWork){
                      try{
                          receiveMsgSingle();
                          Thread.sleep(500);
                      }catch(Exception e){
                          e.printStackTrace();
+                         Log.i(TAG, ">>lilei>>ForwardTask.run 111 error getTimeNow:"+getTimeNow()); 
                          Log.i(TAG, ">>lilei>>ForwardTask.run 111 error trace:"+
                          Log.getStackTraceString(e));
                          break;
@@ -161,9 +165,16 @@ public class ForwardTask extends Task{
              }
 
         }
-
+        void sendAndroidHeartBeat(){
+            IPCService.sWorker.postDelayed(new Runnable(){
+                @Override
+                public void run() {
+                // TODO Auto-generated method stub
+                ipcImpl.androidHeartBeat();
+                sendAndroidHeartBeat();
+             }}, IPCSocketImpl.HEART_BEAT_DELAY);
+        }
         public void receiveMsgSingle() throws IOException {
-            //char[] buffer = new char[1024];
             byte[] buf = new byte[1024];
             byte[] bufMsg = null;
             int index = -1;
@@ -174,11 +185,12 @@ public class ForwardTask extends Task{
            while((len = dis.read(buf)) != -1){
                 Log.w(TAG, ">>lilei>>~~get a new buffer! len is:"+len
                         +" buf.length:"+buf.length);
+//                for(int i=0;i<len;i++){
+//                    Log.w(TAG, ">>lilei>>buf["+i+"]="+buf[i]);
+//                }
                 if(!readBegin)  //if not find Start identifier init length
                     index = -1;
                 for(int i=0;i<len;i++){
-
-                    //int ascii = (int)buf[i];
                     if(buf[i] == IPCSocketImpl.READ_BEGIN){
                         Log.w(TAG, ">>lilei>>###~~receiveMsgSingle get 0xff index i is:"+i
                                 +" byte is:"+buf[i]);
@@ -199,7 +211,6 @@ public class ForwardTask extends Task{
                     }else if(readEnd){  //
                         int length = index + 1;
                         index = -1;     
-                        //char[] arr = bytesToChars(bufMsg,length);
                         byte[] buftmp = new byte[length];
                         System.arraycopy(bufMsg, 0, buftmp, 0, length);
                         String msg = new String(buftmp,"UTF-8");
@@ -208,25 +219,6 @@ public class ForwardTask extends Task{
                         doReceiveMsg(msg);
                     }
                 }
-
-            } //*/
-            //Log.w(TAG, ">>lilei>>~~before read(buffer)");
- /*           while((len = br.read(buffer)) != -1){
-                Log.w(TAG, ">>lilei>>~~get a new buffer! len is:"+len);
-                sbLine = new StringBuilder();
-                for(int i=0;i<len;i++){
-                    if((int)buffer[i] ==-1){
-                        Log.w(TAG, ">>lilei>>~~receiveMsgSingle get 0xff");
-                    }else if((int)buffer[i] == -2){
-                        Log.w(TAG, ">>lilei>>~~receiveMsgSingle get 0xfe");
-                    }
-                   Log.w(TAG, ">>lilei>>~~receiveMsgSingle buffer["+i+"]:"+String.valueOf(buffer[i]).trim()
-                           +" >>ascii is:"+(int)buffer[i]);
-                   sbLine.append(String.valueOf(buffer[i]).trim());
-                }
-                Log.w(TAG, ">>lilei>>~~receiveMsgSingle buffer string is:"+sbLine.toString());
-                //ipcImpl.testAndroidSendOneApp("a", "b");//for test
-                doReceiveMsg(sbLine.toString().trim());
             } //*/
                    
         }
@@ -246,6 +238,7 @@ public class ForwardTask extends Task{
             try {
                 jsonObj = new JSONObject(message);
                 requestType = jsonObj.getInt(IPCSocketImpl.KEY_MESSAGE_TYPE);
+                Log.i(TAG, ">>lilei>>doReceiveMsg requestType:"+requestType);
             }catch (JSONException e) {
                 Log.e(TAG, ">>lilei>>doReceiveMsg error:"+e.toString());
             }
@@ -328,7 +321,6 @@ public class ForwardTask extends Task{
     		}catch (JSONException e1) {
 				Log.e(TAG, ">>lilei>>linuxSetLanguage() error:"+e1.toString());
 		    }
-
         }
         
         ///utils
@@ -444,6 +436,9 @@ public class ForwardTask extends Task{
                 e.printStackTrace();  
             }
         }
+        void test(){
+            mApp.sendBroadcast(null);
+        }
         void FactoryReset(boolean eraseSdCard){
         	if (eraseSdCard) {
         		Log.d(TAG, ">>lilei>>FactoryReset 11 eraseSdCard");
@@ -455,28 +450,6 @@ public class ForwardTask extends Task{
             	mApp.sendBroadcast(new Intent("android.intent.action.MASTER_CLEAR"));
                 // Intent handling is asynchronous -- assume it will happen soon.
             }
-        }
-        /***
-         * convert Specified length of bytes to char array
-         * @param bytes
-         * @param length
-         * @return
-         */
-        private char[] bytesToChars(byte[] bytes,int length) {
-            byte[] buftmp = new byte[length];
-            System.arraycopy(bytes, 0, buftmp, 0, length);
-            for(int i=0;i<buftmp.length;i++){
-                Log.i(TAG, ">>lilei>>buftmp["+i+"]:"+buftmp[i]+" ascii is:"+(int)buftmp[i]);
-            }
-            Charset cs = Charset.forName ("UTF-8");
-            ByteBuffer bb = ByteBuffer.allocate (buftmp.length);
-            bb.put(buftmp);
-            bb.flip();
-            CharBuffer cb = cs.decode(bb);
-            for(int i=0;i<cb.array().length;i++){
-                Log.i(TAG, ">>lilei>>arr["+i+"]:"+cb.array()[i]+" ascii is:"+(int)cb.array()[i]);
-            }
-            return cb.array(); //cb.array() char array
         }
         //add by lilei end
 

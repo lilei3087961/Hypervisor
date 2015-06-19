@@ -46,6 +46,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.io.IOException;
 import java.net.ConnectException;
+import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.io.BufferedInputStream;
@@ -63,12 +64,19 @@ public class IPCService extends Service {
     private ServerThread mServerThread = null;
 
     private static boolean mServerRunning = false;
-    private static boolean mServiceStarted = false; 
+    private static boolean mServiceStarted = false;
     IPCSocketImpl  mIPCSocketImpl;
     private static Socket  mReadySocket;
     static int try_count = 0;
-    static final int TRY_LIMIT = 10;
-    public HypervisorApplication mApp; 
+    static final int TRY_TIMES_LIMIT = 10;
+    static final int TRY_NEXT_CONNECT_DELAY = 20*1000;
+    public HypervisorApplication mApp;
+    private static final HandlerThread sWorkerThread = new HandlerThread("launcher-loader");
+    static {
+        sWorkerThread.start();
+    }
+    public static final Handler sWorker = new Handler(sWorkerThread.getLooper());
+
     // Used for setting FLAG_ACTIVITY_NO_USER_ACTION when
     // creating an intent.
 
@@ -175,30 +183,70 @@ public class IPCService extends Service {
     	//ipcImpl.androidSendOneApp(packageName, className);
     	//ipcImpl.androidRemoveOne("a");
    }
-   static Socket getReadySocket(){  //
+   static Socket getLcReadySocket(){  //for long connect
        if(mReadySocket == null){
            Log.e(TAG, ">>lilei>>error! mReadySocket == null,please set first!!");
        }
        return mReadySocket;
    }
-   void setReadySocket(){//should be set only once before send androidReady message
+   /***
+    * set long connect ReadySocket,and set long connect listed and send
+    * android ready message to linux
+    */
+   void setLcReadySocket(){
        try{
-           mReadySocket = new Socket(IPCSocketImpl.SERVER_HOST_IP, 
-               IPCSocketImpl.SERVER_HOST_PORT);
+           mReadySocket = new Socket();
+           Log.v(TAG, ">>lilei>>setLcReadySocket>>> 111");
+           InetSocketAddress isa = new InetSocketAddress(IPCSocketImpl.SERVER_HOST_IP,
+                   IPCSocketImpl.SERVER_HOST_PORT);
+           mReadySocket.connect(isa,IPCSocketImpl.SOCKET_TIME_OUT);
+           ForwardTask task=new ForwardTask(mReadySocket,mApp,true);
+           ThreadPool.getInstance().addTask(task);
+           Log.v(TAG, ">>lilei>>setLcReadySocket>>> 222");
+           mIPCSocketImpl.androidReady();
        }catch(ConnectException e){
-           Log.e(TAG, ">>lilei>>setReadySocket() error1:"+e.toString());
-           try{
-               Thread.sleep(500);
-           }catch(InterruptedException e1){
-               Log.e(TAG, ">>lilei>>setReadySocket() error2:"+e1.toString());
-           }
-           if(try_count<TRY_LIMIT){
-               Log.i(TAG, ">>lilei>>~~~~recall setReadySocket() times is:"+try_count);
+           if(try_count<TRY_TIMES_LIMIT){
+               Log.i(TAG, ">>lilei>>~~~~recall setLcReadySocket() times is:"+try_count);
                try_count++;
-               setReadySocket();
+               //setReadySocket();
+               sWorker.postDelayed(new Runnable(){
+                   @Override
+                   public void run() {
+                       // TODO Auto-generated method stub
+                       setLcReadySocket();
+                   }
+              }, TRY_NEXT_CONNECT_DELAY);
            }
        }catch(Exception e){
-           Log.e(TAG, ">>lilei>>setReadySocket() error3:"+e.toString());
+           Log.e(TAG, ">>lilei>>setLcReadySocket() error3:"+e.toString());
+       }
+       
+   }
+   /***
+    * send short connect android ready message to linux
+    * short connect must call socket.close()
+    */
+   void sendScAndroidReadyMsg(){
+       try{
+           Log.v(TAG, ">>lilei>>sendScAndroidReadyMsg>>> 111");
+           mReadySocket = new Socket(IPCSocketImpl.SERVER_HOST_IP, 
+                   IPCSocketImpl.SERVER_HOST_PORT);  
+           mReadySocket.close();
+           Log.v(TAG, ">>lilei>>sendScAndroidReadyMsg>>> 222");
+           mIPCSocketImpl.androidReady();
+       }catch(Exception e){
+           if(try_count<TRY_TIMES_LIMIT){
+               Log.i(TAG, ">>lilei>>~~~~recall sendAndroidReadyMsg() times is:"+try_count
+                       +" error:"+e.toString());
+               try_count++;
+               sWorker.postDelayed(new Runnable(){
+                   @Override
+                   public void run() {
+                       // TODO Auto-generated method stub
+                       sendScAndroidReadyMsg();
+                   }
+              }, TRY_NEXT_CONNECT_DELAY);
+           }
        }
    }
    //add by lilei end
@@ -212,17 +260,17 @@ public class IPCService extends Service {
                mServerSocket  = new  ServerSocket(4700);
     
                ThreadPool pool=ThreadPool.getInstance();
-               Log.v("IPCService", ">>>>chenrui>>>>serverThread>>>run");
+               Log.v(TAG, ">>lilei>>serverThread>>>run");
                //add by lilei begin
                mIPCSocketImpl = new IPCSocketImpl(mApp);
-
                try{
                    if(IPCSocketImpl.SINGLE_CONNECTION){
-                       setReadySocket(); //init mReadySocket
-                       ForwardTask task=new ForwardTask(mReadySocket,mApp,true);
-                       pool.addTask(task);
+                       Log.v(TAG, ">>lilei>>serverThread>>>run 111");
+                       setLcReadySocket(); //init mReadySocket,and send message
+                   }else{
+                       sendScAndroidReadyMsg();
+                       Log.v(TAG, ">>lilei>>serverThread>>>run 444");
                    }
-                   mIPCSocketImpl.androidReady();
                } catch (Exception e) {
                    Log.e(TAG, ">>lilei>>serverThread 111 error:"+e.toString());
                    e.printStackTrace();

@@ -80,11 +80,12 @@ public class IPCSocketImpl  extends  IPCImpl{
    
    final static boolean USE_END_CHAR = true;
    final static byte END_CHAR = 0X08;
-   final static byte READ_BEGIN = (byte) 0xff;  //convert to int is -1
-   final static byte READ_END = (byte) 0xfe;    //convert to int is -2
+   final static byte READ_BEGIN = (byte) 0xff;  //convert to Decimal is -1
+   final static byte READ_END = (byte) 0xfe;    //convert to Decimal is -2
    final static String SERVER_HOST_IP = "192.168.30.229";  //localhost 本地 121.40.35.89
    final static int SERVER_HOST_PORT = 8001; //socket port
-
+   final static int SOCKET_TIME_OUT = 5*60*1000; //20 minutes
+   final static int HEART_BEAT_DELAY = SOCKET_TIME_OUT-10*1000;//10 seconds before SOCKET_TIME_OUT
    private final HypervisorApplication mContext;
    final PackageManager mPackageManager;
    List<ResolveInfo> apps = null;
@@ -109,7 +110,7 @@ public class IPCSocketImpl  extends  IPCImpl{
    
    Socket getClientInstance(){
        if(mClientInstance == null){
-           mClientInstance = IPCService.getReadySocket();
+           mClientInstance = IPCService.getLcReadySocket();
        }
        return mClientInstance;
    }
@@ -401,10 +402,6 @@ public class IPCSocketImpl  extends  IPCImpl{
 	   Log.i(TAG,">>lilei>>send:android Ready");
 	   sendAndroidMessageToLinux(Config.MESSAGE_ANDROID_READY);
    }
-   public void androidReady(Socket socket){
-       Log.i(TAG,">>lilei>>send:android Ready socket");
-       sendAndroidMessageToLinux(Config.MESSAGE_ANDROID_READY,socket);
-   }
    /**
    	if Android error,send message to LInux OS
     **/
@@ -625,7 +622,7 @@ public class IPCSocketImpl  extends  IPCImpl{
     * 
     * @param configState
     */
-   public void sendAndroidMessageToLinux(int configState,Socket...socket){
+   public void sendAndroidMessageToLinux(int configState){
        Socket client = null;
 	   	try{
 	   	    if(SINGLE_CONNECTION){
@@ -810,7 +807,7 @@ public class IPCSocketImpl  extends  IPCImpl{
         	+" bitmapbyte.length:"+bitmapbyte.length);
         	 
         	 Log.i(TAG,">>lilei>>sendAndroidMessageToLinux(5) toCharArray size:"+
-        	 jsonObj.toString().toCharArray().length+" timeNow"+ForwardTask.getTimeNow());
+        	 jsonObj.toString().toCharArray().length+" timeNow:"+ForwardTask.getTimeNow());
         			 //+" jsonObj.toString:"+jsonObj.toString());
         	 
              //dos.writeChars(jsonObj.toString());
@@ -931,7 +928,7 @@ public class IPCSocketImpl  extends  IPCImpl{
                dos.writeChars(str);
            }
        }catch(IOException e){
-           Log.i(TAG,">>lilei>> dowriteChars errror:"+e.toString());
+           Log.i(TAG,">>lilei>> dowriteChars error:"+e.toString());
        }
    }
 
@@ -964,7 +961,8 @@ public class IPCSocketImpl  extends  IPCImpl{
   
    try{
        if(SINGLE_CONNECTION){
-           Log.i(TAG,">>lilei>>no close socket !!!!!");
+           Log.i(TAG,">>lilei>>no close socket !!!!!"
+                   +" timeNow:"+ForwardTask.getTimeNow());
            return;
        }
        Log.i(TAG,">>lilei>>close socket !!!!!");
