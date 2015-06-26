@@ -64,7 +64,7 @@ public class IPCSocketImpl  extends  IPCImpl{
    static Socket       mClientInstance; //for no close Socket Instance
    //public static final boolean USE_JSON = true;
    //public static final boolean USE_TWO_WAY = false; //is two way long connect
-   public static final boolean SINGLE_CONNECTION = true;  //is single long connect
+
    static final String KEY_MESSAGE_TYPE = "messageType";
    static final String KEY_PACKAGE_NAME = "packageName";
    static final String KEY_CLASS_NAME = "activityName";
@@ -80,6 +80,9 @@ public class IPCSocketImpl  extends  IPCImpl{
    
    final static boolean USE_END_CHAR = true;
    final static byte END_CHAR = 0X08;
+   public static final boolean SINGLE_CONNECTION = true;  //is single long connect
+   final static boolean ADD_BEGIN_END_CHAR = true; //whether add READ_BEGIN READ_END when send json
+   final static boolean READ_BEGIN_END_CHAR = false; //whether read with READ_BEGIN READ_END when read json
    final static byte READ_BEGIN = (byte) 0xff;  //convert to Decimal is -1
    final static byte READ_END = (byte) 0xfe;    //convert to Decimal is -2
    final static String SERVER_HOST_IP = "192.168.30.229";  //localhost 本地 121.40.35.89
@@ -916,7 +919,7 @@ public class IPCSocketImpl  extends  IPCImpl{
    }
    public void doWriteChars(DataOutputStream dos,String str){
        try{
-           if(SINGLE_CONNECTION){
+           if(SINGLE_CONNECTION && ADD_BEGIN_END_CHAR){
                byte[] bytes= str.getBytes();
                int length = bytes.length;
                byte[] newBytes = new byte[length+2];
@@ -961,7 +964,7 @@ public class IPCSocketImpl  extends  IPCImpl{
   
    try{
        if(SINGLE_CONNECTION){
-           Log.i(TAG,">>lilei>>no close socket !!!!!"
+           Log.i(TAG,">>lilei>># no close socket !!!!!"
                    +" timeNow:"+ForwardTask.getTimeNow());
            return;
        }

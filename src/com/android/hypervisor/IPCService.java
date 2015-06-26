@@ -195,14 +195,17 @@ public class IPCService extends Service {
     */
    void setLcReadySocket(){
        try{
-           mReadySocket = new Socket();
-           Log.v(TAG, ">>lilei>>setLcReadySocket>>> 111");
-           InetSocketAddress isa = new InetSocketAddress(IPCSocketImpl.SERVER_HOST_IP,
-                   IPCSocketImpl.SERVER_HOST_PORT);
-           mReadySocket.connect(isa,IPCSocketImpl.SOCKET_TIME_OUT);
+           mReadySocket = new Socket(IPCSocketImpl.SERVER_HOST_IP, 
+                   IPCSocketImpl.SERVER_HOST_PORT);  
+//           mReadySocket = new Socket();
+//           Log.v(TAG, ">>lilei>>setLcReadySocket>>> 111 SOCKET_TIME_OUT:"
+//                   +IPCSocketImpl.SOCKET_TIME_OUT);
+//           InetSocketAddress isa = new InetSocketAddress(IPCSocketImpl.SERVER_HOST_IP,
+//                   IPCSocketImpl.SERVER_HOST_PORT);
+//           mReadySocket.connect(isa,IPCSocketImpl.SOCKET_TIME_OUT);
            ForwardTask task=new ForwardTask(mReadySocket,mApp,true);
            ThreadPool.getInstance().addTask(task);
-           Log.v(TAG, ">>lilei>>setLcReadySocket>>> 222");
+           Log.v(TAG, ">>lilei>>no set timeout setLcReadySocket>>> 222");
            mIPCSocketImpl.androidReady();
        }catch(ConnectException e){
            if(try_count<TRY_TIMES_LIMIT){

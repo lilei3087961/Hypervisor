@@ -116,7 +116,6 @@ public class ForwardTask extends Task{
         }
 
 
-
         private void setWorkState(boolean state){
                 onWork=state;
         }
@@ -132,7 +131,8 @@ public class ForwardTask extends Task{
                          Thread.sleep(500);
                      }catch(Exception e){
                          e.printStackTrace();
-                         Log.i(TAG, ">>lilei>>ForwardTask.run 111 error getTimeNow:"+getTimeNow()); 
+                         Log.i(TAG, ">>lilei>>ForwardTask.run 111 error getTimeNow:"+getTimeNow());
+                         test_SocketState();
                          Log.i(TAG, ">>lilei>>ForwardTask.run 111 error trace:"+
                          Log.getStackTraceString(e));
                          break;
@@ -175,48 +175,108 @@ public class ForwardTask extends Task{
              }}, IPCSocketImpl.HEART_BEAT_DELAY);
         }
         public void receiveMsgSingle() throws IOException {
-            byte[] buf = new byte[1024];
+            final int BUFFER_SIZE = 1024;
+            byte[] buf = new byte[BUFFER_SIZE];
             byte[] bufMsg = null;
             int index = -1;
             boolean readBegin = false;
             boolean readEnd = false;
             int len = -1;
+            String line;
+            StringBuilder sb = new StringBuilder();
+            boolean needNextRead = true;
+            final char RB = '}';
+            final char LB = '{';
             
            while((len = dis.read(buf)) != -1){
                 Log.w(TAG, ">>lilei>>~~get a new buffer! len is:"+len
-                        +" buf.length:"+buf.length);
+                        +" buf.length:"+buf.length
+                        +" !IPCSocketImpl.READ_BEGIN_END_CHAR:"+!IPCSocketImpl.READ_BEGIN_END_CHAR);
 //                for(int i=0;i<len;i++){
 //                    Log.w(TAG, ">>lilei>>buf["+i+"]="+buf[i]);
 //                }
-                if(!readBegin)  //if not find Start identifier init length
-                    index = -1;
-                for(int i=0;i<len;i++){
-                    if(buf[i] == IPCSocketImpl.READ_BEGIN){
-                        Log.w(TAG, ">>lilei>>###~~receiveMsgSingle get 0xff index i is:"+i
-                                +" byte is:"+buf[i]);
-                        readBegin = true;
-                        readEnd = false;
-                        bufMsg = new byte[1024];
-                    }else if(buf[i] == IPCSocketImpl.READ_END){
-                        Log.w(TAG, ">>lilei>>~~receiveMsgSingle get 0xfe index i is:"+i
-                                +" byte is:"+buf[i]);
-                        readBegin = false;
-                        readEnd = true;
+                if(!IPCSocketImpl.READ_BEGIN_END_CHAR){//for split by "}{"
+                    if(len < BUFFER_SIZE){ //to check whether need next dis.read
+                        needNextRead = false;
+                    }else{
+                        needNextRead = true;
                     }
-                    //Log.w(TAG, ">>lilei>>~~receiveMsgSingle (int)buf["+i+"]="+(int)buf[i]);
-
-                    if(readBegin && buf[i] != IPCSocketImpl.READ_BEGIN){
-                        //Log.w(TAG, ">>lilei>>~~receiveMsgSingle index:"+index);
-                        bufMsg[++index] = buf[i];
-                    }else if(readEnd){  //
-                        int length = index + 1;
-                        index = -1;     
-                        byte[] buftmp = new byte[length];
-                        System.arraycopy(bufMsg, 0, buftmp, 0, length);
-                        String msg = new String(buftmp,"UTF-8");
-                        Log.w(TAG, ">>lilei>>111~~receiveMsgSingle buffer string is:"+msg
-                               +" byte length:"+length);
-                        doReceiveMsg(msg);
+                    byte[] buftmp = new byte[len];
+                    System.arraycopy(buf, 0, buftmp, 0, len);
+                    line = new String(buftmp,"UTF-8");
+                    sb.append(line);
+                    Log.w(TAG, ">>lilei>>###~~receiveMsgSingle>>!needNextRead:"
+                            +!needNextRead+ ">>line is:"+line);
+                    if(!needNextRead){ //read all json strings
+                       //String [] strs = sb.toString().split("}{");
+                        char[] charJsons = sb.toString().toCharArray();
+                        char charPre,charNext;
+                        int jsonBeginIndex = 0;
+                        int jsonEndIndex = 0;
+                        int nextIndex=0;
+                        Log.w(TAG, ">>lilei>>###~~receiveMsgSingle>>charJsons.length:"
+                                +charJsons.length+" Jsons:"+sb.toString());
+                        for(int i=0;i<charJsons.length;i++){
+                            if(i<= charJsons.length -2){
+                                charPre = charJsons[i];
+                                charNext = charJsons[i+1];
+                                nextIndex = i+1;
+                                boolean getSplit = (charPre == RB && charNext == LB);
+                                boolean endChar = (nextIndex==charJsons.length -1);
+                                if(getSplit || endChar){//get string }{ or get last char index
+                                    if(endChar){
+                                        jsonEndIndex = nextIndex;
+                                    }else if(getSplit){
+                                        jsonEndIndex = i;
+                                    }
+                                    int jsonLen = jsonEndIndex-jsonBeginIndex +1;
+                                    char[] bufjson = new char[jsonLen];
+                                    System.arraycopy(charJsons,jsonBeginIndex,bufjson,0,jsonLen);
+                                    String json = new String(bufjson);
+                                    Log.w(TAG, ">>lilei>>###~~receiveMsgSingle>>jsonBeginIndex:"
+                                    +jsonBeginIndex+" jsonEndIndex:"+jsonEndIndex+" >>json:"+json);
+                                    doReceiveMsg(json); //receive
+                                    if(endChar){ //reinit index
+                                        jsonBeginIndex = jsonEndIndex = 0;
+                                    }else{
+                                        jsonBeginIndex = jsonEndIndex+1;
+                                    }
+                                }
+                            }
+                        }
+                        sb = new StringBuilder();//reinit
+                    }
+                }else{
+                    if(!readBegin)  //if not find Start identifier init length
+                        index = -1;
+                    for(int i=0;i<len;i++){
+                        if(buf[i] == IPCSocketImpl.READ_BEGIN){
+                            Log.w(TAG, ">>lilei>>###~~receiveMsgSingle get 0xff index i is:"+i
+                                    +" byte is:"+buf[i]);
+                            readBegin = true;
+                            readEnd = false;
+                            bufMsg = new byte[1024];
+                        }else if(buf[i] == IPCSocketImpl.READ_END){
+                            Log.w(TAG, ">>lilei>>~~receiveMsgSingle get 0xfe index i is:"+i
+                                    +" byte is:"+buf[i]);
+                            readBegin = false;
+                            readEnd = true;
+                        }
+                        //Log.w(TAG, ">>lilei>>~~receiveMsgSingle (int)buf["+i+"]="+(int)buf[i]);
+    
+                        if(readBegin && buf[i] != IPCSocketImpl.READ_BEGIN){
+                            //Log.w(TAG, ">>lilei>>~~receiveMsgSingle index:"+index);
+                            bufMsg[++index] = buf[i];
+                        }else if(readEnd){  //
+                            int length = index + 1;
+                            index = -1;     
+                            byte[] buftmp = new byte[length];
+                            System.arraycopy(bufMsg, 0, buftmp, 0, length);
+                            String msg = new String(buftmp,"UTF-8");
+                            Log.w(TAG, ">>lilei>>111~~receiveMsgSingle buffer string is:"+msg
+                                   +" byte length:"+length);
+                            doReceiveMsg(msg);
+                        }
                     }
                 }
             } //*/
@@ -436,9 +496,6 @@ public class ForwardTask extends Task{
                 e.printStackTrace();  
             }
         }
-        void test(){
-            mApp.sendBroadcast(null);
-        }
         void FactoryReset(boolean eraseSdCard){
         	if (eraseSdCard) {
         		Log.d(TAG, ">>lilei>>FactoryReset 11 eraseSdCard");
@@ -449,6 +506,19 @@ public class ForwardTask extends Task{
             	Log.d(TAG, ">>lilei>>FactoryReset 22 ");
             	mApp.sendBroadcast(new Intent("android.intent.action.MASTER_CLEAR"));
                 // Intent handling is asynchronous -- assume it will happen soon.
+            }
+        }
+        void test(){
+            mApp.sendBroadcast(null);
+        }
+        void test_SocketState(){
+            if(socket != null){
+                Log.i(TAG, ">>lilei>>test_SocketState>>"
+                        + " isBound:"+socket.isBound()
+                        +" isClosed:"+socket.isClosed()
+                        +" isConnected:"+socket.isConnected()
+                        +" isInputShutdown:"+socket.isInputShutdown()
+                        +" isOutputShutdown:"+socket.isOutputShutdown());
             }
         }
         //add by lilei end
